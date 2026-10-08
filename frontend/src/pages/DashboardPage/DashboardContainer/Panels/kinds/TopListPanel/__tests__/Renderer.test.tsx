@@ -6,7 +6,7 @@ import {
 } from 'api/generated/services/sigNoz.schemas';
 import { PanelMode } from 'lib/visualization/panels/types';
 import type { PanelQueryData } from 'pages/DashboardPage/DashboardContainer/queryV5/types';
-import { fireEvent, render, screen } from 'tests/test-utils';
+import { render, screen, userEvent } from 'tests/test-utils';
 
 import type {
 	PanelOfKind,
@@ -76,10 +76,19 @@ function renderPanel(
 	);
 }
 
+type OnClick = NonNullable<
+	PanelRendererProps<'signoz/TopListPanel'>['onClick']
+>;
+
 const rowLabels = (): string[] =>
 	screen
 		.getAllByTestId('top-list-row')
-		.map((row) => row.getAttribute('aria-label') ?? '');
+		.map(
+			(row) =>
+				row.getAttribute('aria-label') ??
+				row.closest('li')?.getAttribute('aria-label') ??
+				'',
+		);
 
 mockListLayout();
 
@@ -129,20 +138,21 @@ describe('TopListPanelRenderer', () => {
 			screen.getAllByTestId('top-list-row-fill');
 		const [paymentValue, checkoutValue] =
 			screen.getAllByTestId('top-list-row-value');
-		expect(paymentFill).toHaveStyle({ backgroundColor: '#F1575F' });
+		expect(paymentFill.style.getPropertyValue('--fill-color')).toBe('#F1575F');
 		expect(paymentValue.style.color).toBe('');
 		expect(checkoutValue).toHaveStyle({ color: '#F5B225' });
-		expect(checkoutFill.style.backgroundColor).toBe('');
+		expect(checkoutFill.style.getPropertyValue('--fill-color')).toBe('');
 	});
 
-	it('opens the drilldown with the clicked row', () => {
-		const onClick = jest.fn();
+	it('opens the drilldown with the clicked row', async () => {
+		const user = userEvent.setup({ pointerEventsCheck: 0 });
+		const onClick = jest.fn() as jest.MockedFunction<OnClick>;
 		renderPanel({ onClick, enableDrillDown: true });
 
-		fireEvent.click(screen.getAllByTestId('top-list-row')[1], {
-			detail: 1,
-			clientX: 10,
-			clientY: 20,
+		await user.pointer({
+			keys: '[MouseLeft]',
+			target: screen.getAllByTestId('top-list-row')[1],
+			coords: { clientX: 10, clientY: 20 },
 		});
 
 		expect(onClick).toHaveBeenCalledTimes(1);
@@ -152,15 +162,17 @@ describe('TopListPanelRenderer', () => {
 		});
 	});
 
-	it('anchors the drilldown under the row when opened from the keyboard', () => {
-		const onClick = jest.fn();
+	it('anchors the drilldown under the row when opened from the keyboard', async () => {
+		const user = userEvent.setup({ pointerEventsCheck: 0 });
+		const onClick = jest.fn() as jest.MockedFunction<OnClick>;
 		renderPanel({ onClick, enableDrillDown: true });
 		const row = screen.getAllByTestId('top-list-row')[0];
 		jest
 			.spyOn(row, 'getBoundingClientRect')
 			.mockReturnValue({ left: 30, bottom: 60 } as DOMRect);
 
-		fireEvent.click(row, { detail: 0 });
+		row.focus();
+		await user.keyboard('{Enter}');
 
 		expect(onClick.mock.calls[0][0]).toMatchObject({
 			coordinates: { x: 30, y: 60 },
@@ -168,24 +180,26 @@ describe('TopListPanelRenderer', () => {
 		});
 	});
 
-	it('does not drill down when drilldown is disabled', () => {
-		const onClick = jest.fn();
+	it('does not drill down when drilldown is disabled', async () => {
+		const user = userEvent.setup({ pointerEventsCheck: 0 });
+		const onClick = jest.fn() as jest.MockedFunction<OnClick>;
 		renderPanel({ onClick });
 
-		fireEvent.click(screen.getAllByTestId('top-list-row')[0]);
+		await user.click(screen.getAllByTestId('top-list-row')[0]);
 
 		expect(onClick).not.toHaveBeenCalled();
 	});
 
-	it('moves focus between rows with the arrow keys', () => {
-		renderPanel({});
+	it('moves focus between rows with the arrow keys', async () => {
+		const user = userEvent.setup({ pointerEventsCheck: 0 });
+		renderPanel({ enableDrillDown: true, onClick: jest.fn() });
 		const rows = screen.getAllByTestId('top-list-row');
 		rows[0].focus();
 
-		fireEvent.keyDown(rows[0], { key: 'ArrowDown' });
+		await user.keyboard('{ArrowDown}');
 		expect(rows[1]).toHaveFocus();
 
-		fireEvent.keyDown(rows[1], { key: 'ArrowUp' });
+		await user.keyboard('{ArrowUp}');
 		expect(rows[0]).toHaveFocus();
 	});
 
