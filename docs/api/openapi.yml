@@ -5261,6 +5261,7 @@ components:
           signoz/TablePanel: '#/components/schemas/DashboardtypesPanelPluginVariantGithubComSigNozSignozPkgTypesDashboardtypesTablePanelSpec'
           signoz/TextPanel: '#/components/schemas/DashboardtypesPanelPluginVariantGithubComSigNozSignozPkgTypesDashboardtypesTextPanelSpec'
           signoz/TimeSeriesPanel: '#/components/schemas/DashboardtypesPanelPluginVariantGithubComSigNozSignozPkgTypesDashboardtypesTimeSeriesPanelSpec'
+          signoz/TopListPanel: '#/components/schemas/DashboardtypesPanelPluginVariantGithubComSigNozSignozPkgTypesDashboardtypesTopListPanelSpec'
         propertyName: kind
       oneOf:
       - $ref: '#/components/schemas/DashboardtypesPanelPluginVariantGithubComSigNozSignozPkgTypesDashboardtypesTimeSeriesPanelSpec'
@@ -5274,6 +5275,7 @@ components:
       - $ref: '#/components/schemas/DashboardtypesPanelPluginVariantGithubComSigNozSignozPkgTypesDashboardtypesTextPanelSpec'
       - $ref: '#/components/schemas/DashboardtypesPanelPluginVariantGithubComSigNozSignozPkgTypesDashboardtypesHeatmapPanelSpec'
       - $ref: '#/components/schemas/DashboardtypesPanelPluginVariantGithubComSigNozSignozPkgTypesDashboardtypesScatterPlotPanelSpec'
+      - $ref: '#/components/schemas/DashboardtypesPanelPluginVariantGithubComSigNozSignozPkgTypesDashboardtypesTopListPanelSpec'
       type: object
     DashboardtypesPanelPluginKind:
       enum:
@@ -5288,6 +5290,7 @@ components:
       - signoz/TextPanel
       - signoz/HeatmapPanel
       - signoz/ScatterPlotPanel
+      - signoz/TopListPanel
       type: string
     DashboardtypesPanelPluginVariantGithubComSigNozSignozPkgTypesDashboardtypesAreaChartPanelSpec:
       properties:
@@ -5450,6 +5453,18 @@ components:
           allOf:
           - $ref: '#/components/schemas/DashboardtypesTimeSeriesPanelSpec'
           description: The options for this panel kind. {} accepts every default.
+      required:
+      - kind
+      - spec
+      type: object
+    DashboardtypesPanelPluginVariantGithubComSigNozSignozPkgTypesDashboardtypesTopListPanelSpec:
+      properties:
+        kind:
+          enum:
+          - signoz/TopListPanel
+          type: string
+        spec:
+          $ref: '#/components/schemas/DashboardtypesTopListPanelSpec'
       required:
       - kind
       - spec
@@ -6215,6 +6230,18 @@ components:
             the dashboard range; last_5_min, last_15_min, last_30_min, last_1_hr,
             last_6_hr, last_1_day, last_3_days, last_1_week or last_1_month pin a
             fixed window.'
+      type: object
+    DashboardtypesTopListPanelSpec:
+      properties:
+        formatting:
+          $ref: '#/components/schemas/DashboardtypesPanelFormatting'
+        thresholds:
+          items:
+            $ref: '#/components/schemas/DashboardtypesComparisonThreshold'
+          nullable: true
+          type: array
+        visualization:
+          $ref: '#/components/schemas/DashboardtypesBasicVisualization'
       type: object
     DashboardtypesUpdatableDashboardV2:
       properties:
