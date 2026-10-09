@@ -11,12 +11,14 @@ import type { TooltipInPortalProps } from '@visx/tooltip/lib/hooks/useTooltipInP
 const TOOLTIP_Z_INDEX = 1000;
 
 interface TopListTooltip {
-	/** The hovered row, or null when the tooltip is hidden. */
-	rowIndex: number | null;
+	/** The hovered row's key, or null when the tooltip is hidden. */
+	rowKey: string | null;
 	top?: number;
 	left?: number;
-	show: (index: number, event: ReactMouseEvent<HTMLElement>) => void;
+	show: (rowKey: string, event: ReactMouseEvent<HTMLElement>) => void;
 	hide: () => void;
+	/** Hides the tooltip when the pointer is over the list but not on a row. */
+	hideOffRow: (event: ReactMouseEvent<HTMLElement>) => void;
 	/** The element the tooltip is positioned against. */
 	listRef: (element: HTMLElement | null) => void;
 	TooltipInPortal: FC<TooltipInPortalProps>;
@@ -31,7 +33,7 @@ export function useTopListTooltip(): TopListTooltip {
 		tooltipLeft,
 		showTooltip,
 		hideTooltip,
-	} = useTooltip<number>();
+	} = useTooltip<string>();
 	const { containerRef, containerBounds, TooltipInPortal } = useTooltipInPortal({
 		scroll: true,
 		detectBounds: true,
@@ -43,10 +45,10 @@ export function useTopListTooltip(): TopListTooltip {
 	boundsRef.current = containerBounds;
 
 	const show = useCallback(
-		(index: number, event: ReactMouseEvent<HTMLElement>): void => {
+		(rowKey: string, event: ReactMouseEvent<HTMLElement>): void => {
 			const { left, top } = boundsRef.current;
 			showTooltip({
-				tooltipData: index,
+				tooltipData: rowKey,
 				tooltipLeft: event.clientX - left,
 				tooltipTop: event.clientY - top,
 			});
@@ -54,12 +56,22 @@ export function useTopListTooltip(): TopListTooltip {
 		[showTooltip],
 	);
 
+	const hideOffRow = useCallback(
+		(event: ReactMouseEvent<HTMLElement>): void => {
+			if (!(event.target as Element).closest('[data-row-index]')) {
+				hideTooltip();
+			}
+		},
+		[hideTooltip],
+	);
+
 	return {
-		rowIndex: tooltipOpen ? (tooltipData ?? null) : null,
+		rowKey: tooltipOpen ? (tooltipData ?? null) : null,
 		top: tooltipTop,
 		left: tooltipLeft,
 		show,
 		hide: hideTooltip,
+		hideOffRow,
 		listRef: containerRef,
 		TooltipInPortal,
 	};
