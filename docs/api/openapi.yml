@@ -6231,8 +6231,19 @@ components:
             last_6_hr, last_1_day, last_3_days, last_1_week or last_1_month pin a
             fixed window.'
       type: object
+    DashboardtypesTopListAppearance:
+      properties:
+        showRank:
+          description: Numbers each row by its position in the list.
+          type: boolean
+        showShare:
+          description: Shows each row's share of the listed rows' total.
+          type: boolean
+      type: object
     DashboardtypesTopListPanelSpec:
       properties:
+        appearance:
+          $ref: '#/components/schemas/DashboardtypesTopListAppearance'
         formatting:
           $ref: '#/components/schemas/DashboardtypesPanelFormatting'
         thresholds:
