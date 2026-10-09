@@ -1,4 +1,3 @@
-import type { Querybuildertypesv5QueryRangeRequestDTO } from 'api/generated/services/sigNoz.schemas';
 import { prepareScalarTables } from 'pages/DashboardPage/DashboardContainer/queryV5/prepareScalarTables';
 import type {
 	PanelQueryData,
@@ -8,11 +7,19 @@ import type {
 } from 'pages/DashboardPage/DashboardContainer/queryV5/types';
 import { getScalarResults } from 'pages/DashboardPage/DashboardContainer/queryV5/v5ResponseData';
 
+import {
+	describeValue,
+	getQueryOrder,
+	getRankedOrder,
+	type SortDirection,
+} from './querySpec';
 import type { TopListData, TopListRow } from './types';
 
 export const EMPTY_LABEL = '(empty)';
 
 const LABEL_SEPARATOR = ' · ';
+/** Joins the group-by keys heading the label column. */
+export const LABEL_NAME_SEPARATOR = ', ';
 const LEGEND_VARIABLE = /\{\{\s*([^}]+?)\s*\}\}/g;
 
 const EMPTY_DATA: TopListData = {
@@ -64,7 +71,9 @@ function resolveLabel(
 			LEGEND_VARIABLE,
 			(_, key: string) => labels[key] ?? '',
 		);
-		return { label, isEmptyLabel: false };
+		return label.trim()
+			? { label, isEmptyLabel: false }
+			: { label: EMPTY_LABEL, isEmptyLabel: true };
 	}
 	if (labelColumns.length === 0) {
 		return { label: table.queryName, isEmptyLabel: false };
@@ -82,8 +91,6 @@ function resolveLabel(
 	};
 }
 
-type SortDirection = 'asc' | 'desc';
-
 /** By value in the query's direction; non-numeric values last; ties by label so the order is stable across refreshes. */
 function compareRows(direction: SortDirection) {
 	return (a: TopListRow, b: TopListRow): number => {
@@ -96,83 +103,6 @@ function compareRows(direction: SortDirection) {
 		const byValue = direction === 'asc' ? a.value - b.value : b.value - a.value;
 		return byValue || a.label.localeCompare(b.label);
 	};
-}
-
-interface NamedQuerySpec {
-	name?: string;
-	/** Formulas. */
-	expression?: string;
-	aggregations?: {
-		alias?: string;
-		expression?: string;
-		metricName?: string;
-		spaceAggregation?: string;
-	}[];
-}
-
-/** The ranked aggregation as the query writes it: its alias, expression or formula. */
-function describeValue(
-	requestPayload: Querybuildertypesv5QueryRangeRequestDTO | undefined,
-	queryName: string,
-): string | null {
-	const spec = (requestPayload?.compositeQuery?.queries ?? [])
-		.map((envelope) => envelope.spec as NamedQuerySpec | undefined)
-		.find((candidate) => candidate?.name === queryName);
-	const [aggregation] = spec?.aggregations ?? [];
-	if (aggregation?.alias || aggregation?.expression) {
-		return aggregation.alias || aggregation.expression || null;
-	}
-	if (aggregation?.metricName) {
-		return aggregation.spaceAggregation
-			? `${aggregation.spaceAggregation}(${aggregation.metricName})`
-			: aggregation.metricName;
-	}
-	return spec?.expression || null;
-}
-
-interface OrderedQuerySpec {
-	name?: string;
-	order?: { key?: { name?: string }; direction?: string }[];
-	groupBy?: { name?: string }[];
-}
-
-interface RankedOrder {
-	direction: SortDirection;
-	groupKey: string | null;
-}
-
-/**
- * How the ranked query orders its rows. The server orders by value, descending, when
- * no order is set; ordering by a group-by key returns the first N groups by that key.
- */
-function getRankedOrder(
-	requestPayload: Querybuildertypesv5QueryRangeRequestDTO | undefined,
-	queryName: string | undefined,
-): RankedOrder {
-	const spec = (requestPayload?.compositeQuery?.queries ?? [])
-		.map((envelope) => envelope.spec as OrderedQuerySpec | undefined)
-		.find((candidate) => candidate?.name === queryName);
-	const [order] = spec?.order ?? [];
-	const keyName = order?.key?.name;
-	if (!keyName) {
-		return { direction: 'desc', groupKey: null };
-	}
-	if (spec?.groupBy?.some((key) => key.name === keyName)) {
-		return { direction: 'desc', groupKey: keyName };
-	}
-	return {
-		direction: order.direction === 'asc' ? 'asc' : 'desc',
-		groupKey: null,
-	};
-}
-
-/** The request's queries and formulas, in builder order. */
-function getQueryOrder(
-	requestPayload: Querybuildertypesv5QueryRangeRequestDTO | undefined,
-): string[] {
-	return (requestPayload?.compositeQuery?.queries ?? [])
-		.map((envelope) => envelope.spec?.name)
-		.filter((name): name is string => Boolean(name));
 }
 
 /** Tables in builder order; the response lists them in no particular order. */
@@ -206,7 +136,8 @@ export function prepareTopListRows(
 	);
 	const labelColumns = table.columns.filter((column) => !column.isValueColumn);
 
-	const rows = table.rows.map((row, index): TopListRow => {
+	const keyCounts = new Map<string, number>();
+	const rows = table.rows.map((row): TopListRow => {
 		const labels: Record<string, string> = {};
 		labelColumns.forEach((column) => {
 			const value = getCell(row, column);
@@ -215,9 +146,15 @@ export function prepareTopListRows(
 			}
 		});
 
+		const groupKey = `${table.queryName}-${JSON.stringify(
+			labelColumns.map((column) => getCell(row, column) ?? null),
+		)}`;
+		const repeats = keyCounts.get(groupKey) ?? 0;
+		keyCounts.set(groupKey, repeats + 1);
+
 		const rawValue = getCell(row, valueColumn);
 		return {
-			key: `${table.queryName}-${index}`,
+			key: repeats ? `${groupKey}-${repeats}` : groupKey,
 			...resolveLabel(labelColumns, row, labels, table),
 			value: toFiniteNumber(rawValue),
 			rawValue,

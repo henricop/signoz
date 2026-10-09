@@ -8,7 +8,13 @@ import type { PanelOfKind } from '../../../types/rendererProps';
 import { prepareTopListData } from '../prepareData';
 import { getTopListDataWarning } from '../warnings';
 
-const panel = {} as PanelOfKind<'signoz/TopListPanel'>;
+const panelWith = (
+	appearance: { showShare?: boolean } = {},
+): PanelOfKind<'signoz/TopListPanel'> =>
+	({
+		spec: { plugin: { spec: { appearance } } },
+	}) as unknown as PanelOfKind<'signoz/TopListPanel'>;
+const panel = panelWith();
 
 interface Result {
 	queryName: string;
@@ -19,6 +25,7 @@ interface Envelope {
 	type: 'builder_query' | 'builder_formula';
 	spec: {
 		name: string;
+		signal?: string;
 		limit?: number;
 		expression?: string;
 		disabled?: boolean;
@@ -61,6 +68,20 @@ function dataWith(results: Result[], queries: Envelope[]): PanelQueryData {
 const query = (name: string, limit?: number): Envelope => ({
 	type: 'builder_query',
 	spec: { name, limit },
+});
+/** The aggregation's signal: metrics aggregate a metric, traces and logs an expression. */
+const signalOf = (aggregation: Partial<Record<string, string>>): string =>
+	aggregation.metricName ? 'metrics' : 'traces';
+
+const aggregated = (
+	aggregation: Partial<Record<string, string>>,
+): Envelope => ({
+	type: 'builder_query',
+	spec: {
+		name: 'A',
+		signal: signalOf(aggregation),
+		aggregations: [aggregation],
+	},
 });
 const formula = (name: string, expression: string): Envelope => ({
 	type: 'builder_formula',
@@ -111,6 +132,16 @@ describe('top list with several queries', () => {
 		expect(getTopListDataWarning(panel, data)?.messages).toStrictEqual([
 			'"A", "B" are limited before the formula combines them, so the formula only sees groups in every input\'s top N. Set the limit on the formula instead.',
 		]);
+	});
+
+	it('stays quiet about limited formula inputs when the list ranks a query', () => {
+		const data = dataWith(
+			[A],
+			[query('A', 10), query('B', 10), formula('F1', 'A / B')],
+		);
+
+		expect(prepareTopListData(data).rows[0].queryName).toBe('A');
+		expect(getTopListDataWarning(panel, data)).toBeNull();
 	});
 
 	it("lists rows in the query's ascending order for a bottom N", () => {
@@ -173,13 +204,6 @@ describe('top list with several queries', () => {
 });
 
 describe('top list value name', () => {
-	const aggregated = (
-		aggregation: Partial<Record<string, string>>,
-	): Envelope => ({
-		type: 'builder_query',
-		spec: { name: 'A', aggregations: [aggregation] },
-	});
-
 	it.each([
 		{
 			scenario: 'an alias',
@@ -210,5 +234,56 @@ describe('top list value name', () => {
 
 	it('falls back to the query name with nothing to describe it', () => {
 		expect(prepareTopListData(dataWith([A], [query('A')])).valueName).toBe('A');
+	});
+});
+
+describe('share of total warning', () => {
+	const sharePanel = panelWith({ showShare: true });
+	const shareMessage = (data: PanelQueryData): string | undefined =>
+		getTopListDataWarning(sharePanel, data)?.messages?.find((message) =>
+			message.startsWith('Share of total'),
+		);
+
+	it.each([
+		{
+			scenario: 'a percentile',
+			aggregation: { expression: 'p99(duration_nano)' },
+		},
+		{ scenario: 'an average', aggregation: { expression: 'avg(duration_nano)' } },
+		{ scenario: 'a maximum', aggregation: { expression: 'max(duration_nano)' } },
+		{
+			scenario: 'a metric averaged across series',
+			aggregation: { metricName: 'cpu', spaceAggregation: 'avg' },
+		},
+	])('warns when ranking $scenario', ({ aggregation }) => {
+		expect(shareMessage(dataWith([A], [aggregated(aggregation)]))).toBeDefined();
+	});
+
+	it.each([
+		{ scenario: 'a count', aggregation: { expression: 'count()' } },
+		{ scenario: 'a sum', aggregation: { expression: 'sum(bytes)' } },
+		{
+			scenario: 'a metric summed across series',
+			aggregation: { metricName: 'signoz_calls_total', spaceAggregation: 'sum' },
+		},
+	])('stays quiet when ranking $scenario', ({ aggregation }) => {
+		expect(
+			shareMessage(dataWith([A], [aggregated(aggregation)])),
+		).toBeUndefined();
+	});
+
+	it('stays quiet for a formula, whose aggregation it cannot tell', () => {
+		const data = dataWith([F1], [query('A'), query('B'), formula('F1', 'A / B')]);
+
+		expect(shareMessage(data)).toBeUndefined();
+	});
+
+	it('stays quiet when the panel does not show shares', () => {
+		const data = dataWith(
+			[A],
+			[aggregated({ expression: 'p99(duration_nano)' })],
+		);
+
+		expect(getTopListDataWarning(panel, data)).toBeNull();
 	});
 });

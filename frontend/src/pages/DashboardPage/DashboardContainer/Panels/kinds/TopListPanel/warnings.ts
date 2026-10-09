@@ -1,11 +1,20 @@
-import type { Querybuildertypesv5QueryRangeRequestDTO } from 'api/generated/services/sigNoz.schemas';
+import {
+	Querybuildertypesv5QueryEnvelopeBuilderDTOType,
+	Querybuildertypesv5QueryEnvelopeFormulaDTOType,
+	type Querybuildertypesv5QueryEnvelopeBuilderDTO,
+	type Querybuildertypesv5QueryRangeRequestDTO,
+} from 'api/generated/services/sigNoz.schemas';
 import type { PanelStatusDetail } from 'pages/DashboardPage/DashboardContainer/PanelsAndSectionsLayout/Panel/PanelStatus/types';
 import type { PanelQueryData } from 'pages/DashboardPage/DashboardContainer/queryV5/types';
 
 import type { PanelOfKind } from '../../types/rendererProps';
 
 import { prepareTopListData } from './prepareData';
+import { findQueryEnvelope, getRankedAggregationFunction } from './querySpec';
 import type { TopListData } from './types';
+
+/** Aggregations whose group values don't add up to a meaningful total. */
+const NON_ADDITIVE_FUNCTION = /^(avg|min|max|median|p\d+|quantile)/;
 
 const quoteAll = (names: string[]): string =>
 	names.map((name) => `"${name}"`).join(', ');
@@ -13,37 +22,34 @@ const verbFor = (names: string[]): string =>
 	names.length === 1 ? 'is' : 'are';
 
 /**
- * Builder queries with a limit that an enabled formula reads. Each input is cut to its
+ * Builder queries with a limit that the ranked formula reads. Each input is cut to its
  * own top N before the formula joins them, so the formula only sees groups that made
  * every input's cut.
  */
 function getLimitedFormulaInputs(
 	requestPayload: Querybuildertypesv5QueryRangeRequestDTO | undefined,
+	rankedQuery: string,
 ): string[] {
-	const envelopes = requestPayload?.compositeQuery?.queries ?? [];
-	const expressions = envelopes
-		.filter((envelope) => envelope.type === 'builder_formula')
-		.map(
-			(envelope) => envelope.spec as { expression?: string; disabled?: boolean },
-		)
-		.filter((formula) => !formula.disabled && formula.expression)
-		.map((formula) => formula.expression as string);
-	if (expressions.length === 0) {
+	const ranked = findQueryEnvelope(requestPayload, rankedQuery);
+	if (
+		ranked?.type !==
+		Querybuildertypesv5QueryEnvelopeFormulaDTOType.builder_formula
+	) {
 		return [];
 	}
-	return envelopes
-		.filter((envelope) => envelope.type === 'builder_query')
-		.map((envelope) => envelope.spec as { name?: string; limit?: number })
+	const expression = ranked.spec?.expression ?? '';
+	return (requestPayload?.compositeQuery?.queries ?? [])
 		.filter(
-			(query): query is { name: string; limit: number } =>
-				Boolean(query.name) && (query.limit ?? 0) > 0,
+			(envelope): envelope is Querybuildertypesv5QueryEnvelopeBuilderDTO =>
+				envelope.type ===
+				Querybuildertypesv5QueryEnvelopeBuilderDTOType.builder_query,
 		)
-		.filter((query) =>
-			expressions.some((expression) =>
-				new RegExp(`\\b${query.name}\\b`).test(expression),
-			),
-		)
-		.map((query) => query.name);
+		.filter((envelope) => (envelope.spec?.limit ?? 0) > 0)
+		.map((envelope) => envelope.spec?.name)
+		.filter(
+			(name): name is string =>
+				Boolean(name) && new RegExp(`\\b${name}\\b`).test(expression),
+		);
 }
 
 function collectIssues(
@@ -90,8 +96,23 @@ function collectIssues(
 	return issues;
 }
 
+/** Share of total sums the rows, which says nothing for averages, percentiles, min or max. */
+function getShareIssue(
+	{ rows, valueName }: TopListData,
+	requestPayload: Querybuildertypesv5QueryRangeRequestDTO | undefined,
+): string | null {
+	const aggregation = getRankedAggregationFunction(
+		requestPayload,
+		rows[0].queryName,
+	);
+	if (!aggregation || !NON_ADDITIVE_FUNCTION.test(aggregation)) {
+		return null;
+	}
+	return `Share of total adds up "${valueName}" across rows, which isn't meaningful for averages, percentiles, minimums or maximums. Turn it off in Appearance, or rank a count or sum.`;
+}
+
 export function getTopListDataWarning(
-	_panel: PanelOfKind<'signoz/TopListPanel'>,
+	panel: PanelOfKind<'signoz/TopListPanel'>,
 	data: PanelQueryData,
 ): PanelStatusDetail | null {
 	const topList = prepareTopListData(data);
@@ -99,10 +120,16 @@ export function getTopListDataWarning(
 		return null;
 	}
 
-	const issues = collectIssues(
-		topList,
-		getLimitedFormulaInputs(data.requestPayload),
-	);
+	const shareIssue = panel.spec.plugin.spec.appearance?.showShare
+		? getShareIssue(topList, data.requestPayload)
+		: null;
+	const issues = [
+		...collectIssues(
+			topList,
+			getLimitedFormulaInputs(data.requestPayload, topList.rows[0].queryName),
+		),
+		...(shareIssue ? [shareIssue] : []),
+	];
 	if (issues.length === 0) {
 		return null;
 	}
