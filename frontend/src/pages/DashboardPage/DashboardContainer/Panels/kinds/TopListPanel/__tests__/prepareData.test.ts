@@ -116,6 +116,52 @@ describe('prepareTopListRows', () => {
 		]);
 	});
 
+	it('gives each numeric row its share of the total', () => {
+		const table = serviceTable([
+			['auth', 30],
+			['payment', 60],
+			['missing', 'n/a'],
+			['checkout', 10],
+		]);
+
+		expect(
+			prepareTopListRows([table]).rows.map((row) => [row.label, row.share]),
+		).toStrictEqual([
+			['payment', 0.6],
+			['auth', 0.3],
+			['checkout', 0.1],
+			['missing', null],
+		]);
+	});
+
+	it.each([
+		{ scenario: 'any value is negative', values: [8, -4] },
+		{ scenario: 'the total is zero', values: [0, 0] },
+	])('gives no shares when $scenario', ({ values }) => {
+		const table = serviceTable(
+			values.map((value, index) => [`s${index}`, value]),
+		);
+
+		expect(
+			prepareTopListRows([table]).rows.map((row) => row.share),
+		).toStrictEqual([null, null]);
+	});
+
+	it.each([
+		{ legend: '', expected: 'count()' },
+		{ legend: '{{service.name}}', expected: 'A' },
+	])(
+		'names the value $expected when the legend is "$legend"',
+		({ legend, expected }) => {
+			const table = serviceTable([['auth', 1]], {
+				legend,
+				columns: [groupColumn('service.name'), valueColumn(legend || 'count()')],
+			});
+
+			expect(prepareTopListRows([table]).valueName).toBe(expected);
+		},
+	);
+
 	it('parses numeric strings', () => {
 		const table = serviceTable([
 			['a', '12'],
@@ -140,7 +186,7 @@ describe('prepareTopListRows', () => {
 			[EMPTY_LABEL, true],
 			[EMPTY_LABEL, true],
 		]);
-		expect(rows.map((row) => row.key)).toStrictEqual(['A-0', 'A-1']);
+		expect(new Set(rows.map((row) => row.key)).size).toBe(2);
 	});
 
 	it('joins several group values, marking only the missing ones', () => {
@@ -168,6 +214,37 @@ describe('prepareTopListRows', () => {
 		});
 
 		expect(summarize(table)[0][0]).toBe('checkout ()');
+	});
+
+	it('labels a legend that fills to blank as empty', () => {
+		const table = serviceTable([['checkout', 1]], { legend: ' {{region}} ' });
+
+		const [row] = prepareTopListRows([table]).rows;
+
+		expect(row.label).toBe(EMPTY_LABEL);
+		expect(row.isEmptyLabel).toBe(true);
+	});
+
+	it('keys rows by their group values, so a reordered refetch keeps each key on its row', () => {
+		const keysByService = (rows: [unknown, unknown][]): Record<string, string> =>
+			Object.fromEntries(
+				prepareTopListRows([serviceTable(rows)]).rows.map((row) => [
+					row.label,
+					row.key,
+				]),
+			);
+
+		expect(
+			keysByService([
+				['auth', 1],
+				['payment', 2],
+			]),
+		).toStrictEqual(
+			keysByService([
+				['payment', 2],
+				['auth', 1],
+			]),
+		);
 	});
 
 	it('keeps rows distinct when a legend without variables gives them all one label', () => {
@@ -242,6 +319,7 @@ describe('prepareTopListRows', () => {
 			rows: [],
 			labelColumnNames: [],
 			valueColumnName: '',
+			valueName: '',
 			ignoredValueColumns: [],
 			ignoredResults: [],
 			orderedByGroupKey: null,
