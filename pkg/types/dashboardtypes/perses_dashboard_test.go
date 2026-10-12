@@ -2246,57 +2246,83 @@ func TestNumberPanelDefaults(t *testing.T) {
 }
 
 func TestTopListPanelSpec(t *testing.T) {
-	data := []byte(`{
-		"variables": [],
-		"panels": {
-			"p1": {
-				"kind": "Panel",
-				"spec": {
-					"links": [],
-					"plugin": {
-						"kind": "signoz/TopListPanel",
-						"spec": {
-							"formatting": {"unit": "ms", "decimalPrecision": 2},
-							"appearance": {"showRank": true, "showShare": true},
-							"thresholds": [{"value": 500, "operator": "above", "format": "background", "color": "Red"}]
-						}
-					},
-					"queries": [{"kind": "scalar", "spec": {"plugin": {"kind": "signoz/ClickHouseSQL", "spec": {"name": "A", "query": "SELECT 1"}}}}]
-				}
-			}
+	testCases := []struct {
+		name           string
+		spec           string
+		wantErr        bool
+		wantAppearance TopListAppearance
+	}{
+		{
+			name: "AllFields_RoundTrip",
+			spec: `{
+				"formatting": {"unit": "ms", "decimalPrecision": 2},
+				"appearance": {"showRank": true, "showShare": true, "barColor": "#E5484D"},
+				"thresholds": [{"value": 500, "operator": "above", "format": "background", "color": "Red"}]
+			}`,
+			wantAppearance: TopListAppearance{ShowRank: true, ShowShare: true, BarColor: "#E5484D"},
 		},
-		"links": [],
-		"layouts": []
-	}`)
-	d, err := unmarshalDashboard(data)
-	require.NoError(t, err, "unmarshal and validate failed")
+		{
+			name: "MissingBarColor_Defaulted",
+			spec: `{
+				"formatting": {"unit": "s", "decimalPrecision": 1},
+				"appearance": {"showRank": true},
+				"thresholds": [{"value": 5, "operator": "below", "format": "text", "color": "Green"}]
+			}`,
+			wantAppearance: TopListAppearance{ShowRank: true, BarColor: DefaultTopListBarColor},
+		},
+		{
+			name:    "InvalidBarColor_Rejected",
+			spec:    `{"appearance": {"barColor": "blue"}}`,
+			wantErr: true,
+		},
+		{
+			name:    "UnknownField_Rejected",
+			spec:    `{"legend": {}}`,
+			wantErr: true,
+		},
+		{
+			name:    "UnknownAppearanceField_Rejected",
+			spec:    `{"appearance": {"showPoints": true}}`,
+			wantErr: true,
+		},
+	}
 
-	require.IsType(t, &TopListPanelSpec{}, d.Panels["p1"].Spec.Plugin.Spec)
-	spec := d.Panels["p1"].Spec.Plugin.Spec.(*TopListPanelSpec)
-	assert.Equal(t, "ms", spec.Formatting.Unit)
-	require.Len(t, spec.Thresholds, 1)
-	assert.Equal(t, "background", spec.Thresholds[0].Format.ValueOrDefault())
-	assert.Equal(t, TopListAppearance{ShowRank: true, ShowShare: true}, spec.Appearance)
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			d, err := unmarshalDashboard([]byte(`{
+				"variables": [],
+				"panels": {
+					"p1": {
+						"kind": "Panel",
+						"spec": {
+							"links": [],
+							"plugin": {"kind": "signoz/TopListPanel", "spec": ` + testCase.spec + `},
+							"queries": [{"kind": "scalar", "spec": {"plugin": {"kind": "signoz/ClickHouseSQL", "spec": {"name": "A", "query": "SELECT 1"}}}}]
+						}
+					}
+				},
+				"links": [],
+				"layouts": []
+			}`))
+			if testCase.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			require.NoError(t, err, "unmarshal and validate failed")
+			require.IsType(t, &TopListPanelSpec{}, d.Panels["p1"].Spec.Plugin.Spec)
+			spec := d.Panels["p1"].Spec.Plugin.Spec.(*TopListPanelSpec)
 
-	output, err := json.Marshal(d)
-	require.NoError(t, err, "marshal dashboard failed")
-	roundTripped, err := unmarshalDashboard(output)
-	require.NoError(t, err, "round trip failed")
-	require.IsType(t, &TopListPanelSpec{}, roundTripped.Panels["p1"].Spec.Plugin.Spec)
-	roundTrippedSpec := roundTripped.Panels["p1"].Spec.Plugin.Spec.(*TopListPanelSpec)
-	assert.Equal(t, spec.Formatting, roundTrippedSpec.Formatting)
-	assert.Equal(t, spec.Thresholds, roundTrippedSpec.Thresholds)
-	assert.Equal(t, spec.Appearance, roundTrippedSpec.Appearance)
-
-	t.Run("UnknownField_Rejected", func(t *testing.T) {
-		_, err := unmarshalDashboard([]byte(strings.Replace(string(data), `"formatting"`, `"legend": {}, "formatting"`, 1)))
-		assert.Error(t, err)
-	})
-
-	t.Run("UnknownAppearanceField_Rejected", func(t *testing.T) {
-		_, err := unmarshalDashboard([]byte(strings.Replace(string(data), `"showRank"`, `"showPoints": true, "showRank"`, 1)))
-		assert.Error(t, err)
-	})
+			output, err := json.Marshal(d)
+			require.NoError(t, err, "marshal dashboard failed")
+			roundTripped, err := unmarshalDashboard(output)
+			require.NoError(t, err, "round trip failed")
+			require.IsType(t, &TopListPanelSpec{}, roundTripped.Panels["p1"].Spec.Plugin.Spec)
+			roundTrippedSpec := roundTripped.Panels["p1"].Spec.Plugin.Spec.(*TopListPanelSpec)
+			assert.Equal(t, spec.Formatting, roundTrippedSpec.Formatting)
+			assert.Equal(t, spec.Thresholds, roundTrippedSpec.Thresholds)
+			assert.Equal(t, testCase.wantAppearance, roundTrippedSpec.Appearance)
+		})
+	}
 }
 
 // TestPersesFixtureStorageRoundTrip exercises the typed → map[string]any →
