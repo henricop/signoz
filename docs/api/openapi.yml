@@ -5460,11 +5460,14 @@ components:
     DashboardtypesPanelPluginVariantGithubComSigNozSignozPkgTypesDashboardtypesTopListPanelSpec:
       properties:
         kind:
+          description: The panel kind.
           enum:
           - signoz/TopListPanel
           type: string
         spec:
-          $ref: '#/components/schemas/DashboardtypesTopListPanelSpec'
+          allOf:
+          - $ref: '#/components/schemas/DashboardtypesTopListPanelSpec'
+          description: The options for this panel kind. {} accepts every default.
       required:
       - kind
       - spec
@@ -6233,26 +6236,40 @@ components:
       type: object
     DashboardtypesTopListAppearance:
       properties:
+        barColor:
+          description: Hex color of every bar; a matching background threshold overrides
+            it.
+          type: string
         showRank:
           description: Numbers each row by its position in the list.
           type: boolean
         showShare:
           description: Shows each row's share of the listed rows' total.
           type: boolean
+      required:
+      - barColor
       type: object
     DashboardtypesTopListPanelSpec:
       properties:
         appearance:
-          $ref: '#/components/schemas/DashboardtypesTopListAppearance'
+          allOf:
+          - $ref: '#/components/schemas/DashboardtypesTopListAppearance'
+          description: Rank, share and bar color options.
         formatting:
-          $ref: '#/components/schemas/DashboardtypesPanelFormatting'
+          allOf:
+          - $ref: '#/components/schemas/DashboardtypesPanelFormatting'
+          description: Unit and decimal precision of the values.
         thresholds:
+          description: Rules that recolor a row when its value compares to a threshold
+            as specified.
           items:
             $ref: '#/components/schemas/DashboardtypesComparisonThreshold'
           nullable: true
           type: array
         visualization:
-          $ref: '#/components/schemas/DashboardtypesBasicVisualization'
+          allOf:
+          - $ref: '#/components/schemas/DashboardtypesBasicVisualization'
+          description: The time range the rows are computed over.
       type: object
     DashboardtypesUpdatableDashboardV2:
       properties:
