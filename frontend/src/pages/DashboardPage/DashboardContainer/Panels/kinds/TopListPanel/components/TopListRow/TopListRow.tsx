@@ -23,15 +23,21 @@ interface TopListRowProps {
 	row: TopListRowData;
 	/** Position in the ranked list. */
 	index: number;
+	/** Rows in the list, rendered or not. */
+	count: number;
+	/** The list's one Tab stop; arrow keys move it. */
+	isTabStop: boolean;
 	unit?: string;
 	precision?: PrecisionOption;
 	thresholds: PanelThreshold[];
+	/** Bar color where no threshold recolours it; unset uses the accent. */
+	barColor?: string;
 	showRank: boolean;
 	showShare: boolean;
 	/** Shortens a label to fit its bar. */
 	fitLabel: (label: string) => string;
 	/** Moves the list's tooltip to this row, at the pointer. */
-	onHover: (index: number, event: ReactMouseEvent<HTMLButtonElement>) => void;
+	onHover: (rowKey: string, event: ReactMouseEvent<HTMLElement>) => void;
 	onSelect?: (
 		row: TopListRowData,
 		colors: RowColors,
@@ -39,28 +45,33 @@ interface TopListRowProps {
 	) => void;
 	/** Handles a navigation key; returns whether it moved focus. */
 	onNavigate: (index: number, key: string) => boolean;
+	onFocus: (index: number) => void;
 }
 
 function TopListRow({
 	row,
 	index,
+	count,
+	isTabStop,
 	unit,
 	precision,
 	thresholds,
+	barColor,
 	showRank,
 	showShare,
 	fitLabel,
 	onHover,
 	onSelect,
 	onNavigate,
+	onFocus,
 }: TopListRowProps): JSX.Element {
 	const displayValue = useMemo(
 		() => formatRowValue(row, unit, precision),
 		[row, unit, precision],
 	);
 	const colors = useMemo(
-		() => resolveRowColors(row.value, thresholds, unit),
-		[row.value, thresholds, unit],
+		() => resolveRowColors(row.value, thresholds, unit, barColor),
+		[row.value, thresholds, unit, barColor],
 	);
 	const displayShare = showShare ? formatShare(row.share) : null;
 	const knownShare =
@@ -80,8 +91,8 @@ function TopListRow({
 		onSelect(row, colors, { x: event.clientX, y: event.clientY });
 	};
 
-	const handleMouseMove = (event: ReactMouseEvent<HTMLButtonElement>): void =>
-		onHover(index, event);
+	const handleMouseMove = (event: ReactMouseEvent<HTMLElement>): void =>
+		onHover(row.key, event);
 
 	const handleKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>): void => {
 		if (onNavigate(index, event.key)) {
@@ -89,60 +100,85 @@ function TopListRow({
 		}
 	};
 
-	return (
-		<li className={styles.item}>
-			<button
-				type="button"
-				aria-haspopup={onSelect ? 'menu' : undefined}
-				aria-label={`${row.label}: ${displayValue}${
-					knownShare ? `, ${knownShare} of total` : ''
-				}`}
-				data-row-index={index}
-				data-testid="top-list-row"
-				className={cx(styles.row, { [styles.isInteractive]: !!onSelect })}
-				onClick={handleClick}
-				onMouseMove={handleMouseMove}
-				onKeyDown={handleKeyDown}
-			>
-				{showRank && (
-					<span data-testid="top-list-row-rank" className={styles.muted}>
-						{index + 1}
-					</span>
-				)}
+	const ariaLabel = `${row.label}: ${displayValue}${
+		knownShare ? `, ${knownShare} of listed total` : ''
+	}`;
+	const content = (
+		<>
+			{showRank && (
+				<span data-testid="top-list-row-rank" className={styles.muted}>
+					{index + 1}
+				</span>
+			)}
+			<span className={styles.bar}>
 				<span
-					data-testid="top-list-row-value"
-					className={cx(styles.value, {
-						[styles.isNonNumeric]: row.value === null,
+					data-testid="top-list-row-fill"
+					className={cx(styles.fill, {
+						[styles.hasFillColor]: !!colors.barColor,
 					})}
-					style={{ color: colors.valueColor }}
+					style={
+						{
+							width: `${row.ratio * 100}%`,
+							'--fill-color': colors.barColor,
+						} as CSSProperties
+					}
+				/>
+				<span
+					className={cx(styles.label, { [styles.isEmptyLabel]: row.isEmptyLabel })}
 				>
-					{displayValue}
+					{displayLabel}
 				</span>
-				{displayShare && (
-					<span data-testid="top-list-row-share" className={styles.muted}>
-						{displayShare}
-					</span>
-				)}
-				<span className={styles.bar}>
-					<span
-						data-testid="top-list-row-fill"
-						className={cx(styles.fill, {
-							[styles.hasThresholdColor]: !!colors.barColor,
-						})}
-						style={
-							{
-								width: `${row.ratio * 100}%`,
-								'--fill-color': colors.barColor,
-							} as CSSProperties
-						}
-					/>
-					<span
-						className={cx(styles.label, { [styles.isEmptyLabel]: row.isEmptyLabel })}
-					>
-						{displayLabel}
-					</span>
+			</span>
+			{displayShare && (
+				<span data-testid="top-list-row-share" className={styles.muted}>
+					{displayShare}
 				</span>
-			</button>
+			)}
+			<span
+				data-testid="top-list-row-value"
+				className={cx(styles.value, {
+					[styles.isNonNumeric]: row.value === null,
+				})}
+				style={{ color: colors.valueColor }}
+			>
+				{displayValue}
+			</span>
+		</>
+	);
+
+	return (
+		<li
+			className={styles.item}
+			aria-setsize={count}
+			aria-posinset={index + 1}
+			aria-label={onSelect ? undefined : ariaLabel}
+		>
+			{onSelect ? (
+				<button
+					type="button"
+					aria-haspopup="menu"
+					aria-label={ariaLabel}
+					tabIndex={isTabStop ? 0 : -1}
+					data-row-index={index}
+					data-testid="top-list-row"
+					className={cx(styles.row, styles.isInteractive)}
+					onClick={handleClick}
+					onMouseMove={handleMouseMove}
+					onKeyDown={handleKeyDown}
+					onFocus={(): void => onFocus(index)}
+				>
+					{content}
+				</button>
+			) : (
+				<div
+					data-row-index={index}
+					data-testid="top-list-row"
+					className={styles.row}
+					onMouseMove={handleMouseMove}
+				>
+					{content}
+				</div>
+			)}
 		</li>
 	);
 }

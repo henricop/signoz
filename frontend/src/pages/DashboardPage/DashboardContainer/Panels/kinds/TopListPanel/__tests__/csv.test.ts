@@ -1,6 +1,7 @@
 import type {
 	DashboardtypesTopListPanelSpecDTO,
 	QueryRangeV5200,
+	Querybuildertypesv5QueryRangeRequestDTO,
 } from 'api/generated/services/sigNoz.schemas';
 import type { PanelQueryData } from 'pages/DashboardPage/DashboardContainer/queryV5/types';
 
@@ -70,8 +71,19 @@ describe('getTopListCsvRows', () => {
 		const data = dataWith(['http.route', 'region'], [['GET /orders', 'eu', 3]]);
 
 		expect(Object.keys(getTopListCsvRows(panelWith({}), data)[0])).toStrictEqual([
-			'http.route · region',
+			'http.route, region',
 			'A',
+		]);
+	});
+
+	it('heads the value column with what it measures, not the legend template', () => {
+		const data = {
+			...dataWith(['service.name'], [['auth', 25]]),
+			legendMap: { A: '{{service.name}}' },
+		};
+
+		expect(getTopListCsvRows(panelWith({}), data)).toStrictEqual([
+			{ 'service.name': 'auth', A: '25' },
 		]);
 	});
 
@@ -92,12 +104,39 @@ describe('getTopListCsvRows', () => {
 			],
 		);
 		const panel = panelWith({
-			appearance: { showRank: true, showShare: true },
+			appearance: { showRank: true, showShare: true, barColor: '#4E74F8' },
 		});
 
 		expect(getTopListCsvRows(panel, data)).toStrictEqual([
 			{ Rank: '1', 'service.name': 'payment', A: '75', Share: '75%' },
 			{ Rank: '2', 'service.name': 'auth', A: '25', Share: '25%' },
+		]);
+	});
+
+	it('suffixes a header that repeats another instead of overwriting its column', () => {
+		const data = {
+			...dataWith(['Rank'], [['auth', 25]]),
+			requestPayload: {
+				compositeQuery: {
+					queries: [
+						{
+							type: 'builder_query',
+							spec: {
+								name: 'A',
+								signal: 'traces',
+								aggregations: [{ expression: 'count()', alias: 'Share' }],
+							},
+						},
+					],
+				},
+			} as unknown as Querybuildertypesv5QueryRangeRequestDTO,
+		};
+		const panel = panelWith({
+			appearance: { showRank: true, showShare: true, barColor: '#4E74F8' },
+		});
+
+		expect(getTopListCsvRows(panel, data)).toStrictEqual([
+			{ Rank: '1', 'Rank (2)': 'auth', Share: '25', 'Share (2)': '100%' },
 		]);
 	});
 

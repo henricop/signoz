@@ -1,13 +1,15 @@
 import { type RefObject, useCallback, useEffect, useRef } from 'react';
 import { useVirtualizer, type VirtualItem } from '@tanstack/react-virtual';
 
-import { ROW_GAP } from '../constants';
+import { HEADER_HEIGHT, LIST_PADDING_Y, ROW_GAP } from '../constants';
 
 const OVERSCAN = 10;
 /** Size assumed until the container is measured, so the first paint isn't empty. */
 const INITIAL_RECT = { width: 0, height: 600 };
 /** Frames to wait for a scrolled-to row to mount before giving up on focusing it. */
 const FOCUS_RETRY_FRAMES = 10;
+/** The first row's offset in the container: the list's top padding, the header and the gap below it. */
+const ROWS_OFFSET = LIST_PADDING_Y / 2 + HEADER_HEIGHT + ROW_GAP;
 
 interface UseTopListVirtualizerArgs {
 	count: number;
@@ -35,6 +37,10 @@ export function useTopListVirtualizer({
 		getScrollElement: () => containerRef.current,
 		estimateSize: () => rowHeight,
 		gap: ROW_GAP,
+		scrollMargin: ROWS_OFFSET,
+		// Keeps a row scrolled to from landing under the sticky header.
+		scrollPaddingStart: HEADER_HEIGHT,
+		scrollPaddingEnd: LIST_PADDING_Y / 2,
 		overscan: OVERSCAN,
 		initialRect: INITIAL_RECT,
 	});
@@ -76,8 +82,11 @@ export function useTopListVirtualizer({
 	const last = virtualItems[virtualItems.length - 1];
 	return {
 		virtualItems,
-		paddingTop: first ? first.start : 0,
-		paddingBottom: last ? virtualizer.getTotalSize() - last.end : 0,
+		// Item offsets include the scroll margin; the total size doesn't.
+		paddingTop: first ? first.start - ROWS_OFFSET : 0,
+		paddingBottom: last
+			? virtualizer.getTotalSize() - (last.end - ROWS_OFFSET)
+			: 0,
 		focusRow,
 	};
 }

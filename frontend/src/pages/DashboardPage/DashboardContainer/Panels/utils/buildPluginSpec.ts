@@ -29,6 +29,7 @@ import {
 	type SectionSpecMap,
 	ThresholdVariant,
 } from '../types/sections';
+import { DEFAULT_BAR_COLOR } from './appearanceDefaults';
 import { getTableColumnKeys } from './getTableColumnKeys';
 
 /** Cross-section of the per-kind spec union; assigned to `plugin.spec` (unknown) at the boundary. */
@@ -176,6 +177,7 @@ const SECTION_SEEDS: SectionSeeds = {
 		): SectionSpecMap[SectionKind.Appearance] => {
 			const old = oldPluginSpec?.appearance;
 			return {
+				barColor: (controls.barColor && old?.barColor) || DEFAULT_BAR_COLOR,
 				...(controls.showRank &&
 					old?.showRank !== undefined && { showRank: old.showRank }),
 				...(controls.showShare &&

@@ -1,21 +1,29 @@
-import { type CSSProperties, useCallback, useMemo, useRef } from 'react';
+import {
+	type CSSProperties,
+	useCallback,
+	useMemo,
+	useRef,
+	useState,
+} from 'react';
 import type { PrecisionOption } from 'components/Graph/types';
 import { useResizeObserver } from 'hooks/useDimensions';
 import TooltipFooter from 'lib/visualization/panels/components/TooltipFooter';
 
 import type { PanelThreshold } from '../../../../types/threshold';
-import { LIST_PADDING_Y } from '../../constants';
+import { HEADER_HEIGHT, LIST_PADDING_Y } from '../../constants';
 import { useLabelFitter } from '../../hooks/useLabelFitter';
 import { useTopListTooltip } from '../../hooks/useTopListTooltip';
 import { useTopListVirtualizer } from '../../hooks/useTopListVirtualizer';
 import type { TopListRow as TopListRowData } from '../../types';
 import {
+	getGridColumns,
 	getNavigationTarget,
 	getRowHeight,
 	getWidestShare,
 	getWidestValue,
 	type RowColors,
 } from '../../utils';
+import TopListHeader from '../TopListHeader/TopListHeader';
 import TopListRow from '../TopListRow/TopListRow';
 import TopListTooltip from '../TopListTooltip/TopListTooltip';
 
@@ -29,9 +37,13 @@ interface TopListProps {
 	rows: TopListRowData[];
 	/** What the values measure, named in each row's tooltip. */
 	valueName: string;
+	/** Heads the label column: the group-by keys behind each label. */
+	labelName?: string;
 	unit?: string;
 	precision?: PrecisionOption;
 	thresholds: PanelThreshold[];
+	/** Bar color where no threshold recolours it; unset uses the accent. */
+	barColor?: string;
 	showRank?: boolean;
 	showShare?: boolean;
 	onSelect?: (
@@ -45,9 +57,11 @@ function TopList({
 	panelId,
 	rows,
 	valueName,
+	labelName = '',
 	unit,
 	precision,
 	thresholds,
+	barColor,
 	showRank = false,
 	showShare = false,
 	onSelect,
@@ -56,12 +70,22 @@ function TopList({
 	const sizerBarRef = useRef<HTMLSpanElement>(null);
 	const fitLabel = useLabelFitter(sizerBarRef);
 	const tooltip = useTopListTooltip();
-	const hoveredRow =
-		tooltip.rowIndex === null ? undefined : rows[tooltip.rowIndex];
+	const hoveredRow = useMemo(
+		() =>
+			tooltip.rowKey === null
+				? undefined
+				: rows.find((row) => row.key === tooltip.rowKey),
+		[rows, tooltip.rowKey],
+	);
 	const { height } = useResizeObserver(containerRef, RESIZE_DEBOUNCE_MS);
-	const rowHeight = getRowHeight(rows.length, height);
+	const rowHeight = getRowHeight(rows.length, height - HEADER_HEIGHT);
 	const { virtualItems, paddingTop, paddingBottom, focusRow } =
 		useTopListVirtualizer({ count: rows.length, rowHeight, containerRef });
+	const [focusedIndex, setFocusedIndex] = useState(0);
+	// The focused row may be scrolled out of the rendered window; the list stays reachable by Tab.
+	const tabStop = virtualItems.some(({ index }) => index === focusedIndex)
+		? focusedIndex
+		: virtualItems[0]?.index;
 
 	const widestValue = useMemo(
 		() => getWidestValue(rows, unit, precision),
@@ -86,7 +110,8 @@ function TopList({
 
 	const listStyle = {
 		'--row-height': `${rowHeight}px`,
-		'--leading-columns': 1 + Number(showRank) + Number(showShare),
+		'--header-height': `${HEADER_HEIGHT}px`,
+		gridTemplateColumns: getGridColumns(showRank, showShare),
 		paddingTop: LIST_PADDING_Y / 2 + paddingTop,
 		paddingBottom: LIST_PADDING_Y / 2 + paddingBottom,
 	} as CSSProperties;
@@ -105,28 +130,38 @@ function TopList({
 				className={styles.list}
 				style={listStyle}
 			>
+				<TopListHeader
+					valueName={valueName}
+					labelName={labelName}
+					showRank={showRank}
+					showShare={showShare}
+				/>
 				<li aria-hidden className={styles.sizer}>
 					{showRank && (
 						<span className={styles.sizerMuted}>{String(rows.length)}</span>
 					)}
-					<span className={styles.sizerValue}>{widestValue}</span>
-					{showShare && <span className={styles.sizerMuted}>{widestShare}</span>}
 					<span ref={sizerBarRef} className={styles.sizerBar} />
+					{showShare && <span className={styles.sizerMuted}>{widestShare}</span>}
+					<span className={styles.sizerValue}>{widestValue}</span>
 				</li>
 				{virtualItems.map(({ index }) => (
 					<TopListRow
 						key={rows[index].key}
 						row={rows[index]}
 						index={index}
+						count={rows.length}
+						isTabStop={index === tabStop}
 						unit={unit}
 						precision={precision}
 						thresholds={thresholds}
+						barColor={barColor}
 						showRank={showRank}
 						showShare={showShare}
 						fitLabel={fitLabel}
 						onHover={tooltip.show}
 						onSelect={onSelect}
 						onNavigate={handleNavigate}
+						onFocus={setFocusedIndex}
 					/>
 				))}
 			</ol>
@@ -144,6 +179,7 @@ function TopList({
 						unit={unit}
 						precision={precision}
 						thresholds={thresholds}
+						barColor={barColor}
 						showShare={showShare}
 						footer={
 							onSelect && (

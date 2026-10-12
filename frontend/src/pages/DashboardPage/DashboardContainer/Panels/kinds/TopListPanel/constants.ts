@@ -6,3 +6,5 @@ export const DEFAULT_ROW_HEIGHT = 28;
 export const ROW_GAP = 1;
 /** The list's top and bottom padding combined. */
 export const LIST_PADDING_Y = 12;
+/** The sticky column header row. */
+export const HEADER_HEIGHT = 24;
