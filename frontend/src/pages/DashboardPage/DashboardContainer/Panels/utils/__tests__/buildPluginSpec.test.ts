@@ -867,6 +867,7 @@ describe('buildPluginSpec', () => {
 				chartAppearance: {
 					colors: { mode: 'palette', palette: 'lava', scale: 'log' },
 				},
+				legend: { position: 'bottom' },
 			});
 		});
 
