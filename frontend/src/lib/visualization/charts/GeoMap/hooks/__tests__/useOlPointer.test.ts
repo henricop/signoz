@@ -1,20 +1,23 @@
-import { renderHook } from '@testing-library/react';
+import { renderHook } from 'tests/test-utils';
 import Feature from 'ol/Feature';
 
 import { useOlPointer } from '../useOlPointer';
 import { createFakeOlMap } from './fakeOlMap';
 
+type OnHover = Parameters<typeof useOlPointer>[1];
+type OnSelect = Parameters<typeof useOlPointer>[2];
+
 describe('useOlPointer', () => {
 	const germany = new Feature({ code: 'DE' });
 
 	function setup(): ReturnType<typeof createFakeOlMap> & {
-		onHover: jest.Mock;
-		onSelect: jest.Mock;
+		onHover: jest.MockedFunction<OnHover>;
+		onSelect: jest.MockedFunction<OnSelect>;
 		unmount: () => void;
 	} {
 		const fake = createFakeOlMap();
-		const onHover = jest.fn();
-		const onSelect = jest.fn();
+		const onHover = jest.fn() as jest.MockedFunction<OnHover>;
+		const onSelect = jest.fn() as jest.MockedFunction<OnSelect>;
 		const { unmount } = renderHook(() =>
 			useOlPointer(fake.handle, onHover, onSelect),
 		);
@@ -42,6 +45,7 @@ describe('useOlPointer', () => {
 		expect(options?.layerFilter?.(layers.members)).toBe(true);
 		expect(options?.layerFilter?.(layers.bubbles)).toBe(true);
 		expect(options?.layerFilter?.(layers.context)).toBe(false);
+		expect(options?.layerFilter?.(layers.labels)).toBe(false);
 	});
 
 	it('reports nothing while the map is being dragged', () => {

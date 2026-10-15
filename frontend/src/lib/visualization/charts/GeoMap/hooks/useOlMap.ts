@@ -13,6 +13,8 @@ export interface OlLayers {
 	members: VectorLayer<VectorSource>;
 	bubbles: VectorLayer<VectorSource>;
 	hover: VectorLayer<VectorSource>;
+	/** Shape names; decluttered, and never hit-tested. */
+	labels: VectorLayer<VectorSource>;
 }
 
 export interface OlMapHandle {
@@ -42,10 +44,20 @@ export function useOlMap(
 			members: new VectorLayer({ source: new VectorSource({ wrapX: false }) }),
 			bubbles: new VectorLayer({ source: new VectorSource({ wrapX: false }) }),
 			hover: new VectorLayer({ source: new VectorSource({ wrapX: false }) }),
+			labels: new VectorLayer({
+				source: new VectorSource({ wrapX: false }),
+				declutter: true,
+			}),
 		};
 		const map = new OlMap({
 			target: target.current,
-			layers: [layers.context, layers.members, layers.bubbles, layers.hover],
+			layers: [
+				layers.context,
+				layers.members,
+				layers.bubbles,
+				layers.hover,
+				layers.labels,
+			],
 			controls: [],
 			interactions: defaultInteractions({
 				mouseWheelZoom: false,
@@ -64,7 +76,11 @@ export function useOlMap(
 		});
 		setHandle({ map, layers });
 		return (): void => {
-			map.setTarget(undefined);
+			map.dispose();
+			Object.values(layers).forEach((layer) => {
+				layer.getSource()?.clear(true);
+				layer.dispose();
+			});
 			setHandle(null);
 		};
 	}, [target]);

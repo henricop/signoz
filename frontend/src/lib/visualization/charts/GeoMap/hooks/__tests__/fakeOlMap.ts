@@ -1,5 +1,6 @@
 import type Feature from 'ol/Feature';
 import VectorLayer from 'ol/layer/Vector';
+import type { AtPixelOptions } from 'ol/Map';
 import type MapBrowserEvent from 'ol/MapBrowserEvent';
 import VectorSource from 'ol/source/Vector';
 import View from 'ol/View';
@@ -7,6 +8,11 @@ import View from 'ol/View';
 import { OlLayers, OlMapHandle } from '../useOlMap';
 
 type Listener = (event: MapBrowserEvent) => void;
+type HitTest = (
+	pixel: number[],
+	callback: (feature: Feature) => unknown,
+	options?: AtPixelOptions,
+) => unknown;
 
 export interface FakeOlMap {
 	handle: OlMapHandle;
@@ -15,9 +21,9 @@ export interface FakeOlMap {
 	setFeatureUnderPointer: (feature: Feature | null) => void;
 	emit: (type: 'pointermove' | 'click', event: Partial<MapBrowserEvent>) => void;
 	listenerCount: () => number;
-	setView: jest.Mock;
-	hitTest: jest.Mock;
-	updateSize: jest.Mock;
+	setView: jest.MockedFunction<(view: View) => void>;
+	hitTest: jest.MockedFunction<HitTest>;
+	updateSize: jest.MockedFunction<() => void>;
 }
 
 /**
@@ -30,18 +36,18 @@ export function createFakeOlMap(): FakeOlMap {
 		members: new VectorLayer({ source: new VectorSource() }),
 		bubbles: new VectorLayer({ source: new VectorSource() }),
 		hover: new VectorLayer({ source: new VectorSource() }),
+		labels: new VectorLayer({ source: new VectorSource() }),
 	} as OlLayers;
 	const target = document.createElement('div');
 	const listeners = new Map<string, Set<Listener>>();
 	let underPointer: Feature | null = null;
 	let view = new View({ center: [0, 0], zoom: 1 });
-	const setView = jest.fn((next: View) => {
+	const setView = jest.fn<void, [View]>((next) => {
 		view = next;
 	});
-	const updateSize = jest.fn();
-	const hitTest = jest.fn(
-		(_pixel: number[], callback: (feature: Feature) => unknown) =>
-			underPointer ? callback(underPointer) : undefined,
+	const updateSize = jest.fn<void, []>();
+	const hitTest = jest.fn<unknown, Parameters<HitTest>>((_pixel, callback) =>
+		underPointer ? callback(underPointer) : undefined,
 	);
 
 	const map = {
