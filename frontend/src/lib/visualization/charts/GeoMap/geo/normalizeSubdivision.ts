@@ -1,5 +1,5 @@
 import { normalizeCountry } from './normalizeCountry';
-import { SubdivisionSet } from './subdivisions';
+import type { SubdivisionSet } from './subdivisions';
 
 /**
  * ISO 3166-2 code of a state/province within `set.country`. GeoIP emits the bare
@@ -27,12 +27,11 @@ export function normalizeSubdivision(
 	if (/^[A-Z]{2}-[A-Z0-9]{1,3}$/.test(upper)) {
 		return known(upper);
 	}
+	if (country && normalizeCountry(country) !== set.country) {
+		return null;
+	}
 	if (/^[A-Z0-9]{1,3}$/.test(upper)) {
-		const iso2 = country ? normalizeCountry(country) : set.country;
-		if (iso2 !== set.country) {
-			return null;
-		}
-		const code = known(`${iso2}-${upper}`);
+		const code = known(`${set.country}-${upper}`);
 		if (code) {
 			return code;
 		}
