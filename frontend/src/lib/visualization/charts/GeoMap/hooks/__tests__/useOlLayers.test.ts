@@ -1,13 +1,14 @@
-import { renderHook } from '@testing-library/react';
 import Feature from 'ol/Feature';
 import type { StyleFunction } from 'ol/style/Style';
 import type CircleStyle from 'ol/style/Circle';
 import type Style from 'ol/style/Style';
+import { renderHook } from 'tests/test-utils';
 
-import { getCountryShapes } from '../../geo/shapes';
+import { GeoMapShapes, getCountryShapes } from '../../geo/shapes';
 import { GeoMapDatum, GeoMapLayer, GeoMapPoint } from '../../types';
 import { OlPalette } from '../../utils/olStyles';
 import { useOlLayers } from '../useOlLayers';
+import { OlLayers } from '../useOlMap';
 import { createFakeOlMap } from './fakeOlMap';
 
 const PALETTE: OlPalette = {
@@ -37,6 +38,7 @@ function setup(
 		useOlLayers({
 			handle: fake.handle,
 			shapes,
+			projection: 'mercator',
 			data: DATA,
 			layer,
 			palette: PALETTE,
@@ -195,6 +197,7 @@ describe('useOlLayers', () => {
 				useOlLayers({
 					handle: fake.handle,
 					shapes: getCountryShapes('europe'),
+					projection: 'mercator',
 					data: [],
 					points: POINTS,
 					// No WebGL in jsdom: the canvas fallback.
@@ -243,6 +246,41 @@ describe('useOlLayers', () => {
 			).getImage() as CircleStyle;
 			expect(image.getRadius()).toBe(9 * 2 + 2);
 		});
+	});
+
+	it('clears the previous view while the next one’s shapes are unavailable', () => {
+		const fake = createFakeOlMap();
+		const { rerender } = renderHook(
+			({ shapes }: { shapes: GeoMapShapes | null }) =>
+				useOlLayers({
+					handle: fake.handle,
+					shapes,
+					projection: 'mercator',
+					data: DATA,
+					layer: 'bubbles',
+					palette: PALETTE,
+					fillFor: (code) => FILLS[code] ?? null,
+					sizeByCode: VALUES,
+					radiusFor: (size) => size * 2,
+					hoveredCode: null,
+				}),
+			{
+				initialProps: {
+					shapes: getCountryShapes('europe') as GeoMapShapes | null,
+				},
+			},
+		);
+		const count = (layer: keyof OlLayers): number =>
+			fake.handle.layers[layer].getSource()?.getFeatures().length ?? 0;
+		expect(count('members')).toBeGreaterThan(0);
+		expect(count('bubbles')).toBeGreaterThan(0);
+
+		rerender({ shapes: null });
+
+		expect(count('members')).toBe(0);
+		expect(count('context')).toBe(0);
+		expect(count('labels')).toBe(0);
+		expect(count('bubbles')).toBe(0);
 	});
 
 	it('outlines the hovered shape', () => {

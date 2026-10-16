@@ -149,6 +149,9 @@ importers:
       crypto-js:
         specifier: 4.2.0
         version: 4.2.0
+      d3-geo:
+        specifier: 3.1.1
+        version: 3.1.1
       d3-hierarchy:
         specifier: 3.1.2
         version: 3.1.2
@@ -399,6 +402,9 @@ importers:
       '@types/crypto-js':
         specifier: 4.2.2
         version: 4.2.2
+      '@types/d3-geo':
+        specifier: 3.1.1
+        version: 3.1.1
       '@types/d3-hierarchy':
         specifier: 1.1.11
         version: 1.1.11
@@ -471,9 +477,6 @@ importers:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260430.1
         version: 7.0.0-dev.20260430.1
-      d3-geo:
-        specifier: 3.1.1
-        version: 3.1.1
       eslint-plugin-sonarjs:
         specifier: 4.0.2
         version: 4.0.2(eslint@10.2.1(jiti@2.6.1))
@@ -4006,6 +4009,9 @@ packages:
 
   '@types/d3-geo@3.1.0':
     resolution: {integrity: sha512-856sckF0oP/diXtS4jNsiQw/UuK5fQG8l/a9VVLeSouf1/PPbBE1i1W852zVwKwYCBkFJJB7nCFTbk6UMEXBOQ==}
+
+  '@types/d3-geo@3.1.1':
+    resolution: {integrity: sha512-65Emv9fQiQQqphLlRkuQ5ypPsOmWPhtBGCMv61JDPEPMvsx+gzhGf74yw1a78xFKPj6zw4AgQICJoQv0vK9M2w==}
 
   '@types/d3-hierarchy@1.1.11':
     resolution: {integrity: sha512-lnQiU7jV+Gyk9oQYk0GGYccuexmQPTp08E0+4BidgFdiJivjEvf+esPSdZqCZ2C7UwTWejWpqetVaU8A+eX3FA==}
@@ -13847,6 +13853,10 @@ snapshots:
   '@types/d3-format@3.0.1': {}
 
   '@types/d3-geo@3.1.0':
+    dependencies:
+      '@types/geojson': 7946.0.16
+
+  '@types/d3-geo@3.1.1':
     dependencies:
       '@types/geojson': 7946.0.16
 
