@@ -402,7 +402,7 @@ func (s *ScatterPlotPanelSpec) validateAgainstQuery(query Query, path string) er
 	if !known {
 		return nil
 	}
-	if err := s.validateQueriesShareGroupBy(composite, path); err != nil {
+	if err := validateQueriesShareGroupBy(composite, path); err != nil {
 		return err
 	}
 	if err := s.validateValueDimensions(keys, path); err != nil {
@@ -415,7 +415,7 @@ func (s *ScatterPlotPanelSpec) validateAgainstQuery(query Query, path string) er
 }
 
 // Order is ignored since rows join on sorted labels; disabled queries count, as formulas carry their keys.
-func (*ScatterPlotPanelSpec) validateQueriesShareGroupBy(composite qb.CompositeQuery, path string) error {
+func validateQueriesShareGroupBy(composite qb.CompositeQuery, path string) error {
 	var queries []qb.QueryEnvelope
 	for _, envelope := range composite.Queries {
 		if envelope.GetType() != qb.QueryTypeFormula {
@@ -425,7 +425,7 @@ func (*ScatterPlotPanelSpec) validateQueriesShareGroupBy(composite qb.CompositeQ
 	for i := 1; i < len(queries); i++ {
 		first, other := groupByKeyNames(queries[0]), groupByKeyNames(queries[i])
 		if !slices.Equal(first, other) {
-			return errors.NewInvalidInputf(ErrCodeDashboardInvalidInput, "%s: queries must group by the same keys so their rows join into dots; %q groups by [%s], %q groups by [%s]", path, queries[0].GetQueryName(), allowedValuesForKind(first), queries[i].GetQueryName(), allowedValuesForKind(other))
+			return errors.NewInvalidInputf(ErrCodeDashboardInvalidInput, "%s: queries must group by the same keys so their rows join; %q groups by [%s], %q groups by [%s]", path, queries[0].GetQueryName(), allowedValuesForKind(first), queries[i].GetQueryName(), allowedValuesForKind(other))
 		}
 	}
 	return nil
@@ -526,13 +526,17 @@ func (p ScatterPlotPoints) validate() error {
 }
 
 type GeoMapPanelSpec struct {
-	Visualization   BasicVisualization    `json:"visualization"`
-	Formatting      TableFormatting       `json:"formatting"`
-	Location        GeoMapLocation        `json:"location"`
-	Map             GeoMapSettings        `json:"map"`
-	ChartAppearance GeoMapChartAppearance `json:"chartAppearance"`
-	Legend          Legend                `json:"legend"`
-	Thresholds      []GeoMapThreshold     `json:"thresholds" validate:"dive"`
+	Visualization   BasicVisualization    `json:"visualization" description:"The time range the values are computed over."`
+	Formatting      TableFormatting       `json:"formatting" description:"Per-column units and decimal precision."`
+	Location        GeoMapLocation        `json:"location" description:"The group-by columns that place each row on the map."`
+	Map             GeoMapSettings        `json:"map" description:"Layer, view, projection and the value columns drawn."`
+	ChartAppearance GeoMapChartAppearance `json:"chartAppearance" description:"Color scale, bubble size and labels."`
+	Legend          Legend                `json:"legend" description:"Legend placement."`
+	Thresholds      []GeoMapThreshold     `json:"thresholds" validate:"dive" description:"Rules that recolor a shape, bubble or point when its value compares to a threshold as specified."`
+}
+
+func (s GeoMapPanelSpec) validate() error {
+	return s.ChartAppearance.Bubbles.validate(s.Map.Layer)
 }
 
 func (s *GeoMapPanelSpec) validateAgainstQuery(query Query, path string) error {
@@ -543,6 +547,9 @@ func (s *GeoMapPanelSpec) validateAgainstQuery(query Query, path string) error {
 	keys, known := composite.CollectResultColumnKeys()
 	if !known {
 		return nil
+	}
+	if err := validateQueriesShareGroupBy(composite, path); err != nil {
+		return err
 	}
 	for _, binding := range []struct{ field, key string }{{"location.country", s.Location.Country}, {"location.region", s.Location.Region}, {"location.lat", s.Location.Lat}, {"location.lon", s.Location.Lon}} {
 		// Empty is unset: the renderer detects the column by name.
@@ -564,31 +571,30 @@ func (s *GeoMapPanelSpec) validateAgainstQuery(query Query, path string) error {
 	return nil
 }
 
-// GeoMapLocation names the group-by columns that place a row on the map. Empty
-// columns are detected by name (geo.country.iso_code, a lat/lon pair, ...).
 type GeoMapLocation struct {
-	Mode          GeoMapLocationMode  `json:"mode"`
-	Country       string              `json:"country" description:"Group-by key holding the country, for the country and subdivision modes."`
-	CountryFormat GeoMapCountryFormat `json:"countryFormat"`
-	Region        string              `json:"region" description:"Group-by key holding the ISO 3166-2 region code (e.g. geo.region.iso_code), for the subdivision mode."`
-	Lat           string              `json:"lat" description:"Group-by key holding the latitude, for the coordinates mode."`
-	Lon           string              `json:"lon" description:"Group-by key holding the longitude, for the coordinates mode."`
+	Mode          GeoMapLocationMode  `json:"mode" required:"true" description:"How rows are placed: auto (default) detects it from the group-by keys, country, subdivision or coordinates."`
+	Country       string              `json:"country" description:"Group-by key holding the country, for the country and subdivision modes. Empty detects it by name, such as geo.country.iso_code."`
+	CountryFormat GeoMapCountryFormat `json:"countryFormat" required:"true" description:"How country values are written: auto (default) detects it, alpha2, alpha3 or name."`
+	Region        string              `json:"region" description:"Group-by key holding the ISO 3166-2 region code (e.g. geo.region.iso_code), for the subdivision mode. Empty detects it by name."`
+	Lat           string              `json:"lat" description:"Group-by key holding the latitude, for the coordinates mode. Empty detects it by name."`
+	Lon           string              `json:"lon" description:"Group-by key holding the longitude, for the coordinates mode. Empty detects it by name."`
 }
 
-// GeoMapSettings uses the Table column key for colorBy and sizeBy, so
-// formatting.columnUnits carries over between the two kinds.
 type GeoMapSettings struct {
-	Layer       GeoMapLayer `json:"layer"`
-	View        GeoMapView  `json:"view"`
-	ViewCountry string      `json:"viewCountry" validate:"omitempty,len=2,alpha,uppercase" description:"ISO 3166-1 alpha-2 code of the country the country view shows."`
-	ColorBy     string      `json:"colorBy" description:"Value column key that sets the colour. Empty uses the first value column."`
-	SizeBy      string      `json:"sizeBy" description:"Value column key that sets the bubble or point size. Empty uses colorBy."`
+	Layer       GeoMapLayer      `json:"layer" required:"true" description:"What is drawn: regions (default) fills each shape, bubbles draws a circle per region, points a circle per coordinate."`
+	View        GeoMapView       `json:"view" required:"true" description:"The area shown: world (default), fit to the data, a continent, or country with viewCountry."`
+	ViewCountry string           `json:"viewCountry" validate:"omitempty,iso3166_1_alpha2" description:"Uppercase ISO 3166-1 alpha-2 code of the country the country view shows."`
+	Projection  GeoMapProjection `json:"projection" required:"true" description:"The map projection: mercator (default), equal_earth or natural_earth."`
+	ColorBy     string           `json:"colorBy" description:"Value column key, as in a Table panel, that sets the color. Empty uses the first value column."`
+	SizeBy      string           `json:"sizeBy" description:"Value column key, as in a Table panel, that sets the bubble or point size. Empty uses colorBy."`
 }
 
 func (m *GeoMapSettings) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.DisallowUnknownFields()
 	type alias GeoMapSettings
 	var tmp alias
-	if err := json.Unmarshal(data, &tmp); err != nil {
+	if err := dec.Decode(&tmp); err != nil {
 		return errors.WrapInvalidInputf(err, ErrCodeDashboardInvalidInput, "invalid map")
 	}
 	*m = GeoMapSettings(tmp)
@@ -603,28 +609,27 @@ func (m GeoMapSettings) validate() error {
 }
 
 type GeoMapChartAppearance struct {
-	Colors  GeoMapColors  `json:"colors"`
-	Bubbles GeoMapBubbles `json:"bubbles"`
-	// Labels is a pointer so an omitted field resolves to shown at render time.
-	Labels *bool `json:"labels" description:"Shows country and state names once each fits inside its shape."`
+	Colors  GeoMapColors  `json:"colors" description:"The color scale applied to the colorBy values."`
+	Bubbles GeoMapBubbles `json:"bubbles" description:"The circle radius range of the bubbles and points layers."`
+	Labels  *bool         `json:"labels" description:"Shows country and state names once each fits inside its shape. Null shows them."`
 }
 
 type GeoMapColors struct {
-	Mode    HeatmapColorMode  `json:"mode"`
-	Palette HeatmapPalette    `json:"palette"`
-	Scale   HeatmapColorScale `json:"scale"`
-	Steps   int               `json:"steps" validate:"omitempty,min=2,max=128"`
-	// Min and Max clamp the colour scale; nil derives them from the data.
-	Min *float64 `json:"min"`
-	Max *float64 `json:"max"`
-	// Fill applies in opacity mode; empty means the default fill.
-	Fill string `json:"fill"`
+	Mode    HeatmapColorMode  `json:"mode" description:"How values are colored: palette (default) picks a hue from palette, opacity varies the opacity of fill."`
+	Palette HeatmapPalette    `json:"palette" description:"The named color ramp used in palette mode, such as lava (default), ice or ember."`
+	Scale   HeatmapColorScale `json:"scale" description:"How values map onto the color range: log (default), sqrt or linear."`
+	Steps   int               `json:"steps" validate:"omitempty,min=2,max=128" description:"The number of distinct color steps, 2 to 128. 0 uses the chart default."`
+	Min     *float64          `json:"min" description:"The value mapped to the lowest color. Null uses the lowest value in the data. Must not exceed max."`
+	Max     *float64          `json:"max" description:"The value mapped to the highest color. Null uses the highest value in the data."`
+	Fill    string            `json:"fill" validate:"omitempty,hexcolor" description:"The hex color varied in opacity mode. Empty uses the default fill."`
 }
 
 func (c *GeoMapColors) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.DisallowUnknownFields()
 	type alias GeoMapColors
 	var tmp alias
-	if err := json.Unmarshal(data, &tmp); err != nil {
+	if err := dec.Decode(&tmp); err != nil {
 		return errors.WrapInvalidInputf(err, ErrCodeDashboardInvalidInput, "invalid geo map colors")
 	}
 	*c = GeoMapColors(tmp)
@@ -638,26 +643,25 @@ func (c GeoMapColors) validate() error {
 	return nil
 }
 
-// GeoMapBubbles is the circle radius range for the bubbles and points layers.
-// Nil fields resolve to the layer default.
 type GeoMapBubbles struct {
-	MinRadius *BubbleRadius `json:"minRadius"`
-	MaxRadius *BubbleRadius `json:"maxRadius"`
+	MinRadius *BubbleRadius `json:"minRadius" description:"Radius of the smallest circle, in CSS pixels from 1 to 64. Null means 2 on the points layer, 3 otherwise."`
+	MaxRadius *BubbleRadius `json:"maxRadius" description:"Radius of the largest circle, in CSS pixels from 1 to 64. Null means 8 on the points layer, 28 otherwise."`
 }
 
-func (b *GeoMapBubbles) UnmarshalJSON(data []byte) error {
-	type alias GeoMapBubbles
-	var tmp alias
-	if err := json.Unmarshal(data, &tmp); err != nil {
-		return errors.WrapInvalidInputf(err, ErrCodeDashboardInvalidInput, "invalid bubbles")
+// Null bounds are compared at the layer's renderer defaults, so one-sided settings can't invert the range.
+func (b GeoMapBubbles) validate(layer GeoMapLayer) error {
+	minRadius, maxRadius := defaultBubbleMinRadius, defaultBubbleMaxRadius
+	if layer == GeoMapLayerPoints {
+		minRadius, maxRadius = defaultPointMinRadius, defaultPointMaxRadius
 	}
-	*b = GeoMapBubbles(tmp)
-	return b.validate()
-}
-
-func (b GeoMapBubbles) validate() error {
-	if b.MinRadius != nil && b.MaxRadius != nil && *b.MinRadius > *b.MaxRadius {
-		return errors.NewInvalidInputf(ErrCodeDashboardInvalidInput, "invalid bubbles: minRadius %d must not exceed maxRadius %d", *b.MinRadius, *b.MaxRadius)
+	if b.MinRadius != nil {
+		minRadius = *b.MinRadius
+	}
+	if b.MaxRadius != nil {
+		maxRadius = *b.MaxRadius
+	}
+	if minRadius > maxRadius {
+		return errors.NewInvalidInputf(ErrCodeDashboardInvalidInput, "invalid bubbles: minRadius %d must not exceed maxRadius %d", minRadius, maxRadius)
 	}
 	return nil
 }
@@ -753,16 +757,15 @@ type TableThreshold struct {
 	ColumnName string `json:"columnName" validate:"required" required:"true" description:"The key of the value column the rule applies to: the query name for a builder query with one aggregation (A), the query name dotted with the aggregation expression for several (A.count()), or the SQL alias for a ClickHouse SQL column. Group-by columns are never colored, and aggregation aliases are display labels, not keys."`
 }
 
-// GeoMapThreshold is ComparisonThreshold without format: a match always sets
-// the colour of the shape, bubble or point.
+// GeoMapThreshold is ComparisonThreshold without format.
 type GeoMapThreshold struct {
 	// Value is always present in the schema (required:"true"), but 0 is a legitimate
 	// threshold, so it drops validate:"required" — go-playground's required treats a
 	// zero float as unset and would wrongly reject value: 0.
-	Value    float64            `json:"value" required:"true"`
-	Operator ComparisonOperator `json:"operator"`
-	Unit     string             `json:"unit"`
-	Color    string             `json:"color" validate:"required" required:"true"`
+	Value    float64            `json:"value" required:"true" description:"The value compared against, in unit."`
+	Operator ComparisonOperator `json:"operator" description:"The comparison that activates the threshold: above (default), below, above_or_equal, below_or_equal, equal or not_equal."`
+	Unit     string             `json:"unit" description:"The unit id of value, such as ms or percent. Empty means the colorBy column's unit."`
+	Color    string             `json:"color" validate:"required" required:"true" description:"The CSS color of the shape, bubble or point while the threshold is active, for example #F1575F; CSS named colors such as red also work."`
 }
 
 // ══════════════════════════════════════════════
@@ -1294,6 +1297,11 @@ func (d *PointDiameter) UnmarshalJSON(data []byte) error {
 const (
 	minBubbleRadius = 1
 	maxBubbleRadius = 64
+
+	defaultBubbleMinRadius BubbleRadius = 3
+	defaultBubbleMaxRadius BubbleRadius = 28
+	defaultPointMinRadius  BubbleRadius = 2
+	defaultPointMaxRadius  BubbleRadius = 8
 )
 
 // BubbleRadius is a geo map circle's radius in whole CSS pixels.
@@ -1861,5 +1869,43 @@ func (v *GeoMapView) UnmarshalJSON(data []byte) error {
 		return nil
 	default:
 		return errors.NewInvalidInputf(ErrCodeDashboardInvalidInput, "invalid geo map view %q: must be `world`, `fit`, `africa`, `asia`, `europe`, `north_america`, `south_america`, `oceania`, or `country`", s)
+	}
+}
+
+type GeoMapProjection struct{ valuer.String }
+
+var (
+	GeoMapProjectionMercator     = GeoMapProjection{valuer.NewString("mercator")} // default
+	GeoMapProjectionEqualEarth   = GeoMapProjection{valuer.NewString("equal_earth")}
+	GeoMapProjectionNaturalEarth = GeoMapProjection{valuer.NewString("natural_earth")}
+)
+
+func (GeoMapProjection) Enum() []any {
+	return []any{GeoMapProjectionMercator, GeoMapProjectionEqualEarth, GeoMapProjectionNaturalEarth}
+}
+
+func (p GeoMapProjection) ValueOrDefault() string {
+	if p.IsZero() {
+		return GeoMapProjectionMercator.StringValue()
+	}
+	return p.StringValue()
+}
+
+func (p GeoMapProjection) MarshalJSON() ([]byte, error) {
+	return json.Marshal(p.ValueOrDefault())
+}
+
+func (p *GeoMapProjection) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return errors.WrapInvalidInputf(err, ErrCodeDashboardInvalidInput, "invalid geo map projection: must be a string, one of `mercator`, `equal_earth`, or `natural_earth`")
+	}
+	parsed := GeoMapProjection{valuer.NewString(s)}
+	switch parsed {
+	case GeoMapProjectionMercator, GeoMapProjectionEqualEarth, GeoMapProjectionNaturalEarth:
+		*p = parsed
+		return nil
+	default:
+		return errors.NewInvalidInputf(ErrCodeDashboardInvalidInput, "invalid geo map projection %q: must be `mercator`, `equal_earth`, or `natural_earth`", s)
 	}
 }
