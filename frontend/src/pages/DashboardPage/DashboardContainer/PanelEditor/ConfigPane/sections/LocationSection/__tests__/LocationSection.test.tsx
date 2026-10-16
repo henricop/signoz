@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ComponentProps, useState } from 'react';
 import { prepareGeoMapData } from 'pages/DashboardPage/DashboardContainer/Panels/kinds/GeoMapPanel/prepareData';
 import type { GeoMapPlacement } from 'pages/DashboardPage/DashboardContainer/Panels/kinds/GeoMapPanel/types';
 import type { GeoMapPlacementSlice } from 'pages/DashboardPage/DashboardContainer/Panels/types/sections';
@@ -7,6 +7,8 @@ import type { PanelTableColumn } from 'pages/DashboardPage/DashboardContainer/qu
 import { render, screen, userEvent, within } from 'tests/test-utils';
 
 import LocationSection from '../LocationSection';
+
+type OnChange = ComponentProps<typeof LocationSection>['onChange'];
 
 const group = (id: string): PanelTableColumn => ({
 	id,
@@ -56,8 +58,8 @@ function renderSection(
 	groups: string[],
 	rows: Record<string, unknown>[],
 	initial: GeoMapPlacementSlice = {},
-): jest.Mock {
-	const onChange = jest.fn();
+): jest.MockedFunction<OnChange> {
+	const onChange = jest.fn() as jest.MockedFunction<OnChange>;
 	function Stateful(): JSX.Element {
 		const [slice, setSlice] = useState(initial);
 		return (
@@ -115,14 +117,22 @@ describe('LocationSection', () => {
 
 	it('asks for the country when states are picked, and hides the area', async () => {
 		const onChange = renderSection(['geo.country.iso_code'], COUNTRY_ROWS, {
-			map: { view: 'europe' } as GeoMapPlacementSlice['map'],
+			map: {
+				view: 'europe',
+				projection: 'equal_earth',
+			} as GeoMapPlacementSlice['map'],
 		});
 
 		await userEvent.click(screen.getByRole('radio', { name: 'State' }));
 
 		expect(onChange).toHaveBeenLastCalledWith({
-			location: { mode: 'subdivision' },
-			map: { view: 'country', viewCountry: 'US' },
+			location: { mode: 'subdivision', countryFormat: 'auto' },
+			map: {
+				view: 'country',
+				viewCountry: 'US',
+				layer: 'regions',
+				projection: 'equal_earth',
+			},
 		});
 		expect(
 			screen.getByTestId('panel-editor-v2-geo-location-view-country'),
@@ -135,7 +145,9 @@ describe('LocationSection', () => {
 			screen.getByTestId('panel-editor-v2-geo-location-auto'),
 		);
 		expect(onChange).toHaveBeenLastCalledWith(
-			expect.objectContaining({ map: { view: 'europe', viewCountry: 'US' } }),
+			expect.objectContaining({
+				map: { view: 'europe', layer: 'regions', projection: 'equal_earth' },
+			}),
 		);
 	});
 
@@ -154,14 +166,37 @@ describe('LocationSection', () => {
 		expect(screen.getByText('Point size')).toBeInTheDocument();
 	});
 
+	it('starts on Mercator and switches the projection', async () => {
+		const onChange = renderSection(['geo.country.iso_code'], COUNTRY_ROWS);
+		const tile = (projection: string): HTMLElement =>
+			within(
+				screen.getByTestId(`panel-editor-v2-geo-map-projection-${projection}`),
+			).getByRole('radio');
+
+		expect(tile('mercator')).toBeChecked();
+		expect(
+			screen.getByTestId('panel-editor-v2-geo-map-projection-equal_earth'),
+		).toHaveTextContent('Equal EarthTrue areas');
+
+		await userEvent.click(tile('equal_earth'));
+
+		expect(onChange).toHaveBeenLastCalledWith({
+			map: { layer: 'regions', view: 'world', projection: 'equal_earth' },
+		});
+		expect(tile('equal_earth')).toBeChecked();
+		expect(
+			screen.getByText('Draws every country at its true size.'),
+		).toBeInTheDocument();
+	});
+
 	it('switches to point rows when Points is drawn', async () => {
 		const onChange = renderSection(['geo.country.iso_code'], COUNTRY_ROWS);
 
 		await userEvent.click(screen.getByRole('radio', { name: 'Points' }));
 
 		expect(onChange).toHaveBeenLastCalledWith({
-			location: { mode: 'coordinates' },
-			map: { layer: 'points' },
+			location: { mode: 'coordinates', countryFormat: 'auto' },
+			map: { layer: 'points', view: 'world', projection: 'mercator' },
 		});
 		expect(
 			screen.getByText('Points need both columns; until then nothing is drawn.'),
@@ -188,7 +223,7 @@ describe('LocationSection', () => {
 			screen.getByTestId('panel-editor-v2-geo-location-country-fix'),
 		);
 		expect(onChange).toHaveBeenLastCalledWith({
-			location: { mode: 'country', country: '' },
+			location: { mode: 'country', countryFormat: 'auto', country: '' },
 		});
 	});
 

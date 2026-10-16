@@ -1,3 +1,8 @@
+import {
+	DashboardtypesGeoMapLayerDTO,
+	DashboardtypesGeoMapProjectionDTO,
+	DashboardtypesGeoMapViewDTO,
+} from 'api/generated/services/sigNoz.schemas';
 import { ColorRampScale } from 'lib/visualization/colorRamp/types';
 import type {
 	PanelTable,
@@ -51,7 +56,12 @@ describe('withTooltipDetails', () => {
 		const data = prepareGeoMapData({
 			table,
 			location: undefined,
-			map: { colorBy: 'A.error_rate' },
+			map: {
+				layer: DashboardtypesGeoMapLayerDTO.regions,
+				view: DashboardtypesGeoMapViewDTO.world,
+				projection: DashboardtypesGeoMapProjectionDTO.mercator,
+				colorBy: 'A.error_rate',
+			},
 			scale: ColorRampScale.Linear,
 			subdivisions: null,
 		});

@@ -2,6 +2,9 @@ import {
 	DashboardtypesGeoMapCountryFormatDTO,
 	DashboardtypesGeoMapLayerDTO,
 	DashboardtypesGeoMapLocationModeDTO,
+	DashboardtypesGeoMapProjectionDTO,
+	type DashboardtypesGeoMapLocationDTO,
+	type DashboardtypesGeoMapSettingsDTO,
 	DashboardtypesGeoMapViewDTO,
 } from 'api/generated/services/sigNoz.schemas';
 import type { SubdivisionSet } from 'lib/visualization/charts/GeoMap/geo/subdivisions';
@@ -50,6 +53,23 @@ const US_STATES: SubdivisionSet = {
 	names: { california: 'US-CA' },
 };
 
+const mapOf = (
+	settings: Partial<DashboardtypesGeoMapSettingsDTO>,
+): DashboardtypesGeoMapSettingsDTO => ({
+	layer: DashboardtypesGeoMapLayerDTO.regions,
+	view: DashboardtypesGeoMapViewDTO.world,
+	projection: DashboardtypesGeoMapProjectionDTO.mercator,
+	...settings,
+});
+
+const locationOf = (
+	location: Partial<DashboardtypesGeoMapLocationDTO>,
+): DashboardtypesGeoMapLocationDTO => ({
+	mode: DashboardtypesGeoMapLocationModeDTO.auto,
+	countryFormat: DashboardtypesGeoMapCountryFormatDTO.auto,
+	...location,
+});
+
 function prepare(
 	table: PanelTable,
 	overrides: Partial<PrepareGeoMapDataArgs> = {},
@@ -92,7 +112,9 @@ describe('prepareGeoMapData', () => {
 	});
 
 	it('sizes by a second column and keeps a missing size as null', () => {
-		const data = prepare(countryTable, { map: { colorBy: 'B', sizeBy: 'A' } });
+		const data = prepare(countryTable, {
+			map: mapOf({ colorBy: 'B', sizeBy: 'A' }),
+		});
 
 		expect(data.colorColumn?.id).toBe('B');
 		expect(data.regions.map((datum) => [datum.value, datum.size])).toStrictEqual([
@@ -102,9 +124,24 @@ describe('prepareGeoMapData', () => {
 		expect(data.missingValueRows).toBe(1);
 	});
 
+	it('leaves out bubbles without a positive size', () => {
+		const data = prepare(countryTable, {
+			map: mapOf({
+				layer: DashboardtypesGeoMapLayerDTO.bubbles,
+				colorBy: 'A',
+				sizeBy: 'B',
+			}),
+		});
+
+		expect(data.regions.map((datum) => datum.code)).toStrictEqual(['US', 'DE']);
+		expect(data.missingSizeRows).toBe(1);
+	});
+
 	it('reads country values only in the declared format', () => {
 		const data = prepare(countryTable, {
-			location: { countryFormat: DashboardtypesGeoMapCountryFormatDTO.alpha2 },
+			location: locationOf({
+				countryFormat: DashboardtypesGeoMapCountryFormatDTO.alpha2,
+			}),
 		});
 
 		expect(data.regions.map((datum) => datum.code)).toStrictEqual(['US']);
@@ -167,10 +204,10 @@ describe('prepareGeoMapData', () => {
 				{ 'geo.country.iso_code': 'US', 'geo.region.iso_code': 'XX', A: 1 },
 			],
 		);
-		const countryView = {
+		const countryView = mapOf({
 			view: DashboardtypesGeoMapViewDTO.country,
 			viewCountry: 'US',
-		};
+		});
 
 		it('places regions on a country view and counts other countries apart', () => {
 			const data = prepare(statesTable, {
@@ -196,12 +233,28 @@ describe('prepareGeoMapData', () => {
 
 		it('waits for a country view when the mode asks for states', () => {
 			const data = prepare(statesTable, {
-				location: { mode: DashboardtypesGeoMapLocationModeDTO.subdivision },
+				location: locationOf({
+					mode: DashboardtypesGeoMapLocationModeDTO.subdivision,
+				}),
 			});
 
 			expect(data.needsCountryView).toBe(true);
 			expect(data.regions).toStrictEqual([]);
 		});
+
+		it.each([undefined, '', 'ZZ'])(
+			'asks for a country view when the view country is %p',
+			(viewCountry) => {
+				const data = prepare(statesTable, {
+					location: locationOf({
+						mode: DashboardtypesGeoMapLocationModeDTO.subdivision,
+					}),
+					map: mapOf({ view: DashboardtypesGeoMapViewDTO.country, viewCountry }),
+				});
+
+				expect(data.needsCountryView).toBe(true);
+			},
+		);
 
 		it('draws nothing while the states file loads', () => {
 			const data = prepare(statesTable, { map: countryView });
@@ -246,7 +299,7 @@ describe('prepareGeoMapData', () => {
 		);
 
 		it('draws points labelled by the other group values', () => {
-			const data = prepare(pointTable, { map: { sizeBy: 'B' } });
+			const data = prepare(pointTable, { map: mapOf({ sizeBy: 'B' }) });
 
 			expect(data.location?.kind).toBe(LocationKind.Coordinates);
 			expect(data.layer).toBe('points');
@@ -264,9 +317,20 @@ describe('prepareGeoMapData', () => {
 			expect(data.unmapped).toStrictEqual([{ raw: '120, 0', rows: 1 }]);
 		});
 
+		it('counts a row with no coordinates as having no location', () => {
+			const data = prepare(
+				makeTable(
+					[group('geo.location.lat'), group('geo.location.lon'), value('A')],
+					[{ 'geo.location.lat': '', 'geo.location.lon': '', A: 1 }],
+				),
+			);
+
+			expect(data.unmapped).toStrictEqual([{ raw: '', rows: 1 }]);
+		});
+
 		it('draws bubbles when points are asked for without coordinates', () => {
 			const data = prepare(countryTable, {
-				map: { layer: DashboardtypesGeoMapLayerDTO.points },
+				map: mapOf({ layer: DashboardtypesGeoMapLayerDTO.points }),
 			});
 
 			expect(data.layer).toBe('bubbles');
@@ -276,8 +340,8 @@ describe('prepareGeoMapData', () => {
 
 	it('names spec columns missing from the result and falls back', () => {
 		const data = prepare(countryTable, {
-			location: { country: 'client.country' },
-			map: { colorBy: 'F1', sizeBy: 'B' },
+			location: locationOf({ country: 'client.country' }),
+			map: mapOf({ colorBy: 'F1', sizeBy: 'B' }),
 		});
 
 		expect(data.staleBindings).toStrictEqual([

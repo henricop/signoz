@@ -4,7 +4,6 @@ import type { DashboardtypesGeoMapPanelSpecDTO } from 'api/generated/services/si
 import { useIsDarkMode } from 'hooks/useDarkMode';
 import GeoMap from 'lib/visualization/charts/GeoMap/GeoMap';
 import { isSubdivisionCountry } from 'lib/visualization/charts/GeoMap/geo/subdivisions';
-import { useSubdivisionSet } from 'lib/visualization/charts/GeoMap/hooks/useSubdivisionSet';
 import type { GeoMapSelection } from 'lib/visualization/charts/GeoMap/types';
 import TooltipFooter from 'lib/visualization/panels/components/TooltipFooter';
 
@@ -29,9 +28,11 @@ import {
 	resolveColorScale,
 	toColorKeys,
 } from '../../chartOptions';
-import { prepareGeoMapData, toText } from '../../prepareData';
+import { toText } from '../../cellValues';
+import { prepareGeoMapData } from '../../prepareData';
 import { withTooltipDetails } from '../../tooltipDetails';
 import { LocationKind } from '../../types';
+import { useLoadedSubdivisions } from '../../hooks/useLoadedSubdivisions';
 import { getGeoMapEmptyMessage } from '../../warnings';
 
 // A map tooltip can't be pinned, so there is nothing to dismiss.
@@ -60,9 +61,8 @@ export default function GeoMapPanelBody({
 	const country = isSubdivisionCountry(map?.viewCountry)
 		? map?.viewCountry
 		: undefined;
-	const { set: subdivisions, status: statesStatus } = useSubdivisionSet(
-		map?.view === 'country' ? country : undefined,
-	);
+	const statesCountry = map?.view === 'country' ? country : undefined;
+	const subdivisions = useLoadedSubdivisions(statesCountry);
 
 	const table = useMemo(() => getJoinedScalarTable(data), [data]);
 	const geoData = useMemo(
@@ -189,7 +189,8 @@ export default function GeoMapPanelBody({
 	// The chart reports loading or a failed states file itself, with a retry.
 	const isWaitingForStates =
 		geoData.location?.kind === LocationKind.Subdivision &&
-		(statesStatus === 'loading' || statesStatus === 'failed');
+		Boolean(statesCountry) &&
+		!subdivisions;
 
 	if (!isDrawable && emptyMessage && !isWaitingForStates) {
 		return (
@@ -209,6 +210,7 @@ export default function GeoMapPanelBody({
 			data={regions}
 			points={points}
 			view={map?.view ?? 'world'}
+			projection={map?.projection ?? 'mercator'}
 			country={country}
 			layer={geoData.layer}
 			colors={colors}

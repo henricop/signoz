@@ -4,16 +4,9 @@ import {
 	LocationKind,
 } from 'pages/DashboardPage/DashboardContainer/Panels/kinds/GeoMapPanel/types';
 
-import {
-	buildAreaItems,
-	changeRowKind,
-	describePlacement,
-	describeUnplaced,
-	fromAreaValue,
-	resolveLayer,
-	resolveRowKind,
-	toAreaValue,
-} from '../utils';
+import { buildAreaItems, fromAreaValue, toAreaValue } from '../options';
+import { describePlacement, describeUnplaced } from '../placement';
+import { changeRowKind, resolveLayer, resolveRowKind } from '../utils';
 
 const column = (id: string): GeoMapPanelData['colorColumn'] & object => ({
 	id,
@@ -40,6 +33,7 @@ function makeData(overrides: Partial<GeoMapPanelData> = {}): GeoMapPanelData {
 		otherCountryRows: 0,
 		duplicateRows: 0,
 		missingValueRows: 0,
+		missingSizeRows: 0,
 		nonPositiveOnLogRows: 0,
 		thresholdConflictRows: 0,
 		atRowLimit: false,
@@ -82,15 +76,22 @@ describe('resolveLayer', () => {
 describe('changeRowKind', () => {
 	it('sets the country view with the suggested country when picking states', () => {
 		const change = changeRowKind(
-			{ map: { view: 'europe', layer: 'points' } } as GeoMapPlacementSlice,
+			{
+				map: { view: 'europe', layer: 'points', projection: 'equal_earth' },
+			} as GeoMapPlacementSlice,
 			'country',
 			'state',
 			{ suggestedCountry: 'US' },
 		);
 
 		expect(change.next).toStrictEqual({
-			location: { mode: 'subdivision' },
-			map: { view: 'country', viewCountry: 'US', layer: 'regions' },
+			location: { mode: 'subdivision', countryFormat: 'auto' },
+			map: {
+				view: 'country',
+				viewCountry: 'US',
+				layer: 'regions',
+				projection: 'equal_earth',
+			},
 		});
 		expect(change.previousView).toBe('europe');
 	});
@@ -118,8 +119,8 @@ describe('changeRowKind', () => {
 
 	it('draws points for point rows and clears columns going back to auto', () => {
 		expect(changeRowKind(undefined, 'country', 'point', {}).next).toStrictEqual({
-			location: { mode: 'coordinates' },
-			map: { layer: 'points' },
+			location: { mode: 'coordinates', countryFormat: 'auto' },
+			map: { layer: 'points', view: 'world', projection: 'mercator' },
 		});
 		expect(
 			changeRowKind(
@@ -128,7 +129,46 @@ describe('changeRowKind', () => {
 				'auto',
 				{},
 			).next.location,
-		).toStrictEqual({ mode: 'auto', country: '', region: '', lat: '', lon: '' });
+		).toStrictEqual({
+			mode: 'auto',
+			countryFormat: 'auto',
+			country: '',
+			region: '',
+			lat: '',
+			lon: '',
+		});
+	});
+
+	it.each(['country', 'auto'] as const)(
+		'drops a points country view when picking %s',
+		(to) => {
+			const { map } = changeRowKind(
+				{
+					location: { mode: 'coordinates' },
+					map: { view: 'country', viewCountry: 'IN', layer: 'points' },
+				} as GeoMapPlacementSlice,
+				'point',
+				to,
+				{},
+			).next;
+
+			expect(map?.view).toBe('world');
+			expect(map?.viewCountry).toBeUndefined();
+		},
+	);
+
+	it('keeps a points country view when staying on points', () => {
+		const { map } = changeRowKind(
+			{
+				location: { mode: 'auto' },
+				map: { view: 'country', viewCountry: 'IN', layer: 'points' },
+			} as GeoMapPlacementSlice,
+			'point',
+			'point',
+			{},
+		).next;
+
+		expect(map).toMatchObject({ view: 'country', viewCountry: 'IN' });
 	});
 });
 
@@ -179,6 +219,23 @@ describe('placement status', () => {
 			{ value: 'XK1', why: 'Not a country code or name' },
 			{ value: '(empty)', why: 'No value · 2 rows' },
 			{ value: 'Repeats', why: '1 row repeats a location; the first is shown' },
+		]);
+	});
+
+	it('lists bubbles left off for want of a size', () => {
+		const data = makeData({
+			layer: 'bubbles',
+			sizeColumn: { ...column('B'), name: 'error_rate', isValueColumn: true },
+			totalRows: 2,
+			regions: [{ code: 'US', value: 1, raw: 'US', size: 3 }],
+			missingSizeRows: 1,
+		});
+
+		expect(describePlacement(data, 'country', undefined)?.text).toBe(
+			'1 of 2 rows placed',
+		);
+		expect(describeUnplaced(data, 'country', undefined)).toStrictEqual([
+			{ value: 'No size', why: '1 row without a positive error_rate value' },
 		]);
 	});
 

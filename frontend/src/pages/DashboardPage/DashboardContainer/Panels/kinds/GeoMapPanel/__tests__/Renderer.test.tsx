@@ -1,12 +1,18 @@
-import type {
-	DashboardtypesGeoMapPanelSpecDTO,
-	DashboardtypesPanelDTO,
-	QueryRangeV5200,
+import {
+	DashboardtypesGeoMapCountryFormatDTO,
+	DashboardtypesGeoMapLayerDTO,
+	DashboardtypesGeoMapLocationModeDTO,
+	type DashboardtypesGeoMapPanelSpecDTO,
+	DashboardtypesGeoMapProjectionDTO,
+	DashboardtypesGeoMapViewDTO,
+	type DashboardtypesPanelDTO,
+	type QueryRangeV5200,
 } from 'api/generated/services/sigNoz.schemas';
+import { rememberSubdivisions } from 'lib/visualization/charts/GeoMap/geo/subdivisionCache';
 import type { GeoMapProps } from 'lib/visualization/charts/GeoMap/types';
 import { PanelMode } from 'lib/visualization/panels/types';
 import type { PanelQueryData } from 'pages/DashboardPage/DashboardContainer/queryV5/types';
-import { render, screen } from 'tests/test-utils';
+import { act, render, screen } from 'tests/test-utils';
 
 import type { DrilldownClickPayload } from '../../../types/drilldown';
 import type { BaseRendererProps } from '../../../types/rendererProps';
@@ -16,7 +22,7 @@ const GeoMapPanelRenderer = BaseGeoMapPanelRenderer as React.FC<
 	BaseRendererProps & { onClick?: (payload: DrilldownClickPayload) => void }
 >;
 
-const mapProps = jest.fn();
+const mapProps = jest.fn() as jest.MockedFunction<(props: GeoMapProps) => void>;
 
 jest.mock('lib/visualization/charts/GeoMap/GeoMap', () => ({
 	__esModule: true,
@@ -95,6 +101,8 @@ function lastMapProps(): GeoMapProps {
 }
 
 describe('GeoMapPanelRenderer', () => {
+	// Load the lazy body up front so a slow first import can't outlast findBy's timeout.
+	beforeAll(() => import('../components/GeoMapPanelBody/GeoMapPanelBody'));
 	beforeEach(() => mapProps.mockClear());
 
 	it('maps countries with the spec defaults', async () => {
@@ -116,6 +124,7 @@ describe('GeoMapPanelRenderer', () => {
 			{ code: 'DE', value: 80, raw: 'DE' },
 		]);
 		expect(props.view).toBe('world');
+		expect(props.projection).toBe('mercator');
 		expect(props.layer).toBe('regions');
 		expect(props.colors).toStrictEqual({
 			mode: 'palette',
@@ -137,7 +146,13 @@ describe('GeoMapPanelRenderer', () => {
 			dataWith(['geo.country.iso_code'], ['A', 'B'], [['US', 12.5, 3000]]),
 			{
 				formatting: { columnUnits: { A: 'percent' }, decimalPrecision: '1' },
-				map: { layer: 'bubbles', colorBy: 'A', sizeBy: 'B' },
+				map: {
+					layer: 'bubbles',
+					view: 'world',
+					projection: 'equal_earth',
+					colorBy: 'A',
+					sizeBy: 'B',
+				},
 				chartAppearance: { labels: false, bubbles: { minRadius: 4 } },
 				legend: { position: 'right' },
 			} as DashboardtypesGeoMapPanelSpecDTO,
@@ -145,6 +160,7 @@ describe('GeoMapPanelRenderer', () => {
 
 		await screen.findByTestId('geo-map');
 		const props = lastMapProps();
+		expect(props.projection).toBe('equal_earth');
 		expect(props.layer).toBe('bubbles');
 		expect(props.data).toStrictEqual([
 			{
@@ -188,7 +204,9 @@ describe('GeoMapPanelRenderer', () => {
 	});
 
 	it('drills down into the clicked location', async () => {
-		const onClick = jest.fn();
+		const onClick = jest.fn() as jest.MockedFunction<
+			(payload: DrilldownClickPayload) => void
+		>;
 		const data = dataWith(
 			['geo.country.iso_code'],
 			['A'],
@@ -286,6 +304,58 @@ describe('GeoMapPanelRenderer', () => {
 			screen.findByText('Group by a location'),
 		).resolves.toBeInTheDocument();
 		expect(mapProps).not.toHaveBeenCalled();
+	});
+
+	it('asks for a country view when state rows have no country to show', async () => {
+		renderPanel(dataWith(['geo.region.iso_code'], ['A'], [['CA', 5]]), {
+			location: {
+				mode: DashboardtypesGeoMapLocationModeDTO.subdivision,
+				countryFormat: DashboardtypesGeoMapCountryFormatDTO.auto,
+			},
+			map: {
+				layer: DashboardtypesGeoMapLayerDTO.regions,
+				view: DashboardtypesGeoMapViewDTO.country,
+				projection: DashboardtypesGeoMapProjectionDTO.mercator,
+			},
+		});
+
+		await expect(
+			screen.findByText('Pick a country view'),
+		).resolves.toBeInTheDocument();
+		expect(mapProps).not.toHaveBeenCalled();
+	});
+
+	it('places state rows once the map has loaded their states', async () => {
+		renderPanel(dataWith(['geo.region.iso_code'], ['A'], [['CA', 5]]), {
+			location: {
+				mode: DashboardtypesGeoMapLocationModeDTO.subdivision,
+				countryFormat: DashboardtypesGeoMapCountryFormatDTO.auto,
+			},
+			map: {
+				layer: DashboardtypesGeoMapLayerDTO.regions,
+				view: DashboardtypesGeoMapViewDTO.country,
+				viewCountry: 'US',
+				projection: DashboardtypesGeoMapProjectionDTO.mercator,
+			},
+		});
+
+		await screen.findByTestId('geo-map');
+		expect(lastMapProps().data).toStrictEqual([]);
+
+		// What the map's own load, or its retry after a failure, leaves behind.
+		act(() =>
+			rememberSubdivisions({
+				country: 'US',
+				shapes: [],
+				codes: new Set(['US-CA']),
+				aliases: {},
+				names: {},
+			}),
+		);
+
+		expect(lastMapProps().data).toStrictEqual([
+			{ code: 'US-CA', value: 5, raw: 'CA' },
+		]);
 	});
 
 	it('shows the plain empty state when the query returns nothing', async () => {
