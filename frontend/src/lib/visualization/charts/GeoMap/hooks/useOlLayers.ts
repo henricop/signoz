@@ -66,21 +66,26 @@ export function useOlLayers({
 	hoveredCode,
 }: UseOlLayersArgs): void {
 	// Cached styles bake in the palette, so a theme change starts a fresh cache.
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	const styles = useMemo(() => createStyleCache(), [palette]);
+	const styles = useMemo(
+		() => (palette ? createStyleCache(palette) : null),
+		[palette],
+	);
 	const showBubbles = layer === 'bubbles' || hasSizeMetric;
 
 	useEffect(() => {
-		if (!handle || !shapes) {
+		if (!handle) {
+			return;
+		}
+		const { layers } = handle;
+		layers.members.getSource()?.clear();
+		layers.context.getSource()?.clear();
+		layers.labels.getSource()?.clear();
+		if (!shapes) {
 			return;
 		}
 		const { members, context } = toShapeFeatures(shapes, projection);
-		const { layers } = handle;
-		layers.members.getSource()?.clear();
 		layers.members.getSource()?.addFeatures(members);
-		layers.context.getSource()?.clear();
 		layers.context.getSource()?.addFeatures(context);
-		layers.labels.getSource()?.clear();
 		layers.labels
 			.getSource()
 			?.addFeatures(toLabelFeatures(shapes, members, projection));
@@ -90,14 +95,19 @@ export function useOlLayers({
 		handle?.layers.labels.setVisible(showLabels);
 	}, [handle, showLabels]);
 
+	// The status, not the layer object, which is new on every render (e.g. each hover).
+	const pointsStatus = pointsLayer?.status;
 	useEffect(() => {
-		if (!handle || !shapes) {
+		if (!handle) {
 			return;
 		}
 		const source = handle.layers.bubbles.getSource();
 		source?.clear();
+		if (!shapes) {
+			return;
+		}
 		// Points go to the GPU layer (next effect), or here without WebGL.
-		if (layer === 'points' && pointsLayer?.status === 'unsupported') {
+		if (layer === 'points' && pointsStatus === 'unsupported') {
 			source?.addFeatures(
 				toPointFeatures(
 					(points ?? []).filter((point) => sizeByCode.has(point.id)),
@@ -119,7 +129,7 @@ export function useOlLayers({
 		projection,
 		data,
 		points,
-		pointsLayer,
+		pointsStatus,
 		layer,
 		showBubbles,
 		sizeByCode,
@@ -158,26 +168,25 @@ export function useOlLayers({
 	]);
 
 	useEffect(() => {
-		if (!handle || !palette) {
+		if (!handle || !palette || !styles) {
 			return;
 		}
 		const { layers } = handle;
-		layers.context.setStyle(styles.shape(palette.context, palette));
+		layers.context.setStyle(styles.shape(palette.context));
 		layers.members.setStyle((feature): Style => {
 			const code = feature.get('code') as string | null;
 			const fill = layer === 'regions' && code ? fillFor(code) : null;
-			return styles.shape(fill ?? palette.noData, palette);
+			return styles.shape(fill ?? palette.noData);
 		});
 		layers.bubbles.setStyle((feature): Style => {
 			const code = feature.get('code') as string;
 			const radius = radiusFor(sizeByCode.get(code) ?? 0);
 			if (layer === 'regions') {
-				return styles.neutralBubble(radius, palette);
+				return styles.neutralBubble(radius);
 			}
 			return styles.bubble(
 				fillFor(code) ?? palette.noData,
 				radius,
-				palette,
 				layer !== 'points' || radius >= MIN_OUTLINED_POINT_RADIUS,
 			);
 		});
@@ -185,7 +194,7 @@ export function useOlLayers({
 			const name = feature.get('name') as string;
 			const box = feature.get('box') as [number, number];
 			return labelFits(name, box, resolution)
-				? styles.label(name, feature.get('area') as number, palette)
+				? styles.label(name, feature.get('area') as number)
 				: undefined;
 		});
 		const outline = new Stroke({ color: palette.outline, width: 1.5 });
@@ -194,16 +203,15 @@ export function useOlLayers({
 			fill: new Fill({ color: 'transparent' }),
 		});
 		// A hovered point gets a ring just outside its circle.
-		layers.hover.setStyle(
-			(feature): Style =>
-				feature.getGeometry() instanceof Point
-					? new Style({
-							image: new CircleStyle({
-								radius: (feature.get('radius') as number) + 2,
-								stroke: outline,
-							}),
-						})
-					: shapeHover,
+		layers.hover.setStyle((feature): Style =>
+			feature.getGeometry() instanceof Point
+				? new Style({
+						image: new CircleStyle({
+							radius: (feature.get('radius') as number) + 2,
+							stroke: outline,
+						}),
+					})
+				: shapeHover,
 		);
 	}, [handle, palette, layer, fillFor, radiusFor, sizeByCode, styles]);
 
