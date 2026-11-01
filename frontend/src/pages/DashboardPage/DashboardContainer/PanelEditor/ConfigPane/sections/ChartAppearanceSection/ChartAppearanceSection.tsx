@@ -12,7 +12,7 @@ import ConfigTiles from '../../controls/ConfigTiles/ConfigTiles';
 import { SWITCH_SKETCHES } from '../../controls/drawings/switchSketches';
 import type { SectionEditorContext } from '../../sectionContext';
 import { createFieldResetter } from '../../utils/changes';
-import { resolveBubbleRadius } from 'pages/DashboardPage/DashboardContainer/Panels/kinds/GeoMapPanel/chartOptions';
+import { resolveBubbleRadius } from 'pages/DashboardPage/DashboardContainer/Panels/kinds/GeoMapPanel/utils/chartOptions';
 
 import ConfigRangeSlider from '../../controls/ConfigRangeSlider/ConfigRangeSlider';
 import DisconnectValuesField from './DisconnectValuesField';

@@ -2,13 +2,13 @@ import { getLoadedSubdivisions } from 'lib/visualization/charts/GeoMap/geo/subdi
 import type { PanelStatusDetail } from 'pages/DashboardPage/DashboardContainer/PanelsAndSectionsLayout/Panel/PanelStatus/types';
 import type { PanelQueryData } from 'pages/DashboardPage/DashboardContainer/queryV5/types';
 
-import type { PanelOfKind } from '../../types/rendererProps';
-import { getJoinedScalarTable } from '../../utils/getJoinedScalarTable';
-import { toPanelThreshold } from '../../utils/mapComparisonThreshold';
+import type { PanelOfKind } from '../../../types/rendererProps';
+import { getJoinedScalarTable } from '../../../utils/getJoinedScalarTable';
+import { toPanelThreshold } from '../../../utils/mapComparisonThreshold';
 import { resolveColorScale } from './chartOptions';
-import { MAX_ROWS } from './constants';
+import { MAX_ROWS } from '../constants';
 import { prepareGeoMapData } from './prepareData';
-import type { GeoMapPanelData, StaleBinding } from './types';
+import type { GeoMapPanelData, StaleBinding } from '../types';
 
 export interface GeoMapMessage {
 	title: string;

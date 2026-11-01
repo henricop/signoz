@@ -27,13 +27,13 @@ import {
 	resolveColors,
 	resolveColorScale,
 	toColorKeys,
-} from '../../chartOptions';
-import { toText } from '../../cellValues';
-import { prepareGeoMapData } from '../../prepareData';
-import { withTooltipDetails } from '../../tooltipDetails';
+} from '../../utils/chartOptions';
+import { toText } from '../../utils/cellValues';
+import { prepareGeoMapData } from '../../utils/prepareData';
+import { withTooltipDetails } from '../../utils/tooltipDetails';
 import { LocationKind } from '../../types';
 import { useLoadedSubdivisions } from '../../hooks/useLoadedSubdivisions';
-import { getGeoMapEmptyMessage } from '../../warnings';
+import { getGeoMapEmptyMessage } from '../../utils/warnings';
 
 // A map tooltip can't be pinned, so there is nothing to dismiss.
 const keepUnpinned = (): void => undefined;

@@ -7,7 +7,7 @@ import {
 	type DashboardtypesGeoMapSettingsDTO,
 	DashboardtypesGeoMapViewDTO,
 } from 'api/generated/services/sigNoz.schemas';
-import { detectLocationColumns } from 'pages/DashboardPage/DashboardContainer/Panels/kinds/GeoMapPanel/locationColumns';
+import { detectLocationColumns } from 'pages/DashboardPage/DashboardContainer/Panels/kinds/GeoMapPanel/utils/locationColumns';
 import type {
 	SectionEditorProps,
 	SectionKind,

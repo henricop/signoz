@@ -14,7 +14,7 @@ import {
 } from 'lib/visualization/colorRamp/types';
 import type { PanelThreshold } from 'pages/DashboardPage/DashboardContainer/Panels/types/threshold';
 
-import { formatPanelValue } from '../../utils/formatPanelValue';
+import { formatPanelValue } from '../../../utils/formatPanelValue';
 
 const DEFAULT_STEPS = 64;
 

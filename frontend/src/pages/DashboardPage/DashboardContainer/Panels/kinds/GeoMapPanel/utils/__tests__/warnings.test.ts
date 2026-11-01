@@ -8,8 +8,8 @@ import type {
 	PanelTableColumn,
 } from 'pages/DashboardPage/DashboardContainer/queryV5/types';
 
-import type { PanelOfKind } from '../../../types/rendererProps';
-import { type GeoMapPanelData, LocationKind } from '../types';
+import type { PanelOfKind } from '../../../../types/rendererProps';
+import { type GeoMapPanelData, LocationKind } from '../../types';
 import {
 	getGeoMapDataWarning,
 	getGeoMapEmptyMessage,

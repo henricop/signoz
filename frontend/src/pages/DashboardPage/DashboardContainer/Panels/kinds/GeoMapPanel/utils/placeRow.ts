@@ -9,7 +9,7 @@ import type {
 } from 'pages/DashboardPage/DashboardContainer/queryV5/types';
 
 import { toFiniteNumber, toText } from './cellValues';
-import { LocationKind, type ResolvedLocation } from './types';
+import { LocationKind, type ResolvedLocation } from '../types';
 
 const CODE_PATTERN: Partial<
 	Record<DashboardtypesGeoMapCountryFormatDTO, RegExp>

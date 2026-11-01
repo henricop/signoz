@@ -9,8 +9,8 @@ import QueryBuilderEditorPane from 'pages/DashboardPage/DashboardContainer/Panel
 import Renderer from './Renderer';
 import { MAX_ROWS } from './constants';
 import { sections } from './sections';
-import { pruneStaleBindings } from './pruneStaleBindings';
-import { getGeoMapDataWarning } from './warnings';
+import { pruneStaleBindings } from './utils/pruneStaleBindings';
+import { getGeoMapDataWarning } from './utils/warnings';
 import {
 	Querybuildertypesv5RequestTypeDTO,
 	TelemetrytypesSignalDTO,

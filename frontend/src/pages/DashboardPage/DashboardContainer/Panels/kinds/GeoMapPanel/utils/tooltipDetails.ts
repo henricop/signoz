@@ -5,7 +5,7 @@ import type {
 } from 'pages/DashboardPage/DashboardContainer/queryV5/types';
 
 import { toFiniteNumber } from './cellValues';
-import type { GeoMapPanelData } from './types';
+import type { GeoMapPanelData } from '../types';
 
 interface TooltipDetailsArgs {
 	table: PanelTable | undefined;

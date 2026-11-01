@@ -7,7 +7,11 @@ import {
 } from 'api/generated/services/sigNoz.schemas';
 import type { PanelTableColumn } from 'pages/DashboardPage/DashboardContainer/queryV5/types';
 
-import { LocationKind, type ResolvedLocation, type StaleBinding } from './types';
+import {
+	LocationKind,
+	type ResolvedLocation,
+	type StaleBinding,
+} from '../types';
 
 // Group-by keys auto mode recognises, most specific first. OTel semantic
 // conventions lead; the rest are common GeoIP and CDN spellings.

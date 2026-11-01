@@ -5,10 +5,10 @@ import {
 import { SUBDIVISION_COUNTRY_CODES } from 'lib/visualization/charts/GeoMap/geo/subdivisionCountries';
 import { ColorRampScale } from 'lib/visualization/colorRamp/types';
 
-import { getColumnUnit } from '../../utils/getColumnUnit';
-import { resolveActiveThreshold } from '../../utils/evaluateThresholds';
+import { getColumnUnit } from '../../../utils/getColumnUnit';
+import { resolveActiveThreshold } from '../../../utils/evaluateThresholds';
 import { toFiniteNumber } from './cellValues';
-import { MAX_ROWS } from './constants';
+import { MAX_ROWS } from '../constants';
 import {
 	findById,
 	findStaleBindings,
@@ -19,7 +19,7 @@ import {
 	type GeoMapPanelData,
 	LocationKind,
 	type PrepareGeoMapDataArgs,
-} from './types';
+} from '../types';
 
 const STATE_COUNTRIES = new Set<string>(SUBDIVISION_COUNTRY_CODES);
 

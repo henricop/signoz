@@ -5,7 +5,7 @@ import {
 	type DashboardtypesPanelSpecDTO,
 } from 'api/generated/services/sigNoz.schemas';
 
-import { getQueryColumnKeys } from '../../utils/getQueryColumnKeys';
+import { getQueryColumnKeys } from '../../../utils/getQueryColumnKeys';
 
 type LocationKey = 'country' | 'region' | 'lat' | 'lon';
 

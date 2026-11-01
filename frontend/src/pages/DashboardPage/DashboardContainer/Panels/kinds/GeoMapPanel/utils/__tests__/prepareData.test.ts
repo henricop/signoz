@@ -14,10 +14,10 @@ import type {
 	PanelTableColumn,
 } from 'pages/DashboardPage/DashboardContainer/queryV5/types';
 
-import type { PanelThreshold } from '../../../types/threshold';
-import { MAX_ROWS } from '../constants';
+import type { PanelThreshold } from '../../../../types/threshold';
+import { MAX_ROWS } from '../../constants';
 import { prepareGeoMapData } from '../prepareData';
-import { LocationKind, type PrepareGeoMapDataArgs } from '../types';
+import { LocationKind, type PrepareGeoMapDataArgs } from '../../types';
 
 const group = (id: string): PanelTableColumn => ({
 	id,

@@ -4,10 +4,10 @@ import type {
 	DashboardtypesPanelDTO,
 } from 'api/generated/services/sigNoz.schemas';
 import { isSubdivisionCountry } from 'lib/visualization/charts/GeoMap/geo/subdivisions';
-import { resolveColorScale } from 'pages/DashboardPage/DashboardContainer/Panels/kinds/GeoMapPanel/chartOptions';
+import { resolveColorScale } from 'pages/DashboardPage/DashboardContainer/Panels/kinds/GeoMapPanel/utils/chartOptions';
 import { useLoadedSubdivisions } from 'pages/DashboardPage/DashboardContainer/Panels/kinds/GeoMapPanel/hooks/useLoadedSubdivisions';
-import { prepareGeoMapData } from 'pages/DashboardPage/DashboardContainer/Panels/kinds/GeoMapPanel/prepareData';
-import { suggestCountry } from 'pages/DashboardPage/DashboardContainer/Panels/kinds/GeoMapPanel/suggestCountry';
+import { prepareGeoMapData } from 'pages/DashboardPage/DashboardContainer/Panels/kinds/GeoMapPanel/utils/prepareData';
+import { suggestCountry } from 'pages/DashboardPage/DashboardContainer/Panels/kinds/GeoMapPanel/utils/suggestCountry';
 import type { GeoMapPlacement } from 'pages/DashboardPage/DashboardContainer/Panels/kinds/GeoMapPanel/types';
 import { getJoinedScalarTable } from 'pages/DashboardPage/DashboardContainer/Panels/utils/getJoinedScalarTable';
 import type { PanelQueryData } from 'pages/DashboardPage/DashboardContainer/queryV5/types';
