@@ -7,11 +7,11 @@ import {
 import type { PanelStatusDetail } from 'pages/DashboardPage/DashboardContainer/PanelsAndSectionsLayout/Panel/PanelStatus/types';
 import type { PanelQueryData } from 'pages/DashboardPage/DashboardContainer/queryV5/types';
 
-import type { PanelOfKind } from '../../types/rendererProps';
+import type { PanelOfKind } from '../../../types/rendererProps';
 
 import { prepareTopListData } from './prepareData';
 import { findQueryEnvelope, getRankedAggregationFunction } from './querySpec';
-import type { TopListData } from './types';
+import type { TopListData } from '../types';
 
 /** Aggregations whose group values don't add up to a meaningful total. */
 const NON_ADDITIVE_FUNCTION = /^(avg|min|max|median|p\d+|quantile)/;

@@ -22,7 +22,7 @@ import {
 	getWidestShare,
 	getWidestValue,
 	type RowColors,
-} from '../../utils';
+} from '../../utils/rowDisplay';
 import TopListHeader from '../TopListHeader/TopListHeader';
 import TopListRow from '../TopListRow/TopListRow';
 import TopListTooltip from '../TopListTooltip/TopListTooltip';

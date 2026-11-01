@@ -8,7 +8,7 @@ import QueryBuilderEditorPane from 'pages/DashboardPage/DashboardContainer/Panel
 import Renderer from './Renderer';
 import { DEFAULT_LIMIT } from './constants';
 import { sections } from './sections';
-import { getTopListDataWarning } from './warnings';
+import { getTopListDataWarning } from './utils/warnings';
 import {
 	Querybuildertypesv5RequestTypeDTO,
 	TelemetrytypesSignalDTO,

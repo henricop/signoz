@@ -1,17 +1,17 @@
 import type { PrecisionOption } from 'components/Graph/types';
 import type { TooltipCardRow } from 'lib/uPlotV2/components/Tooltip/components/TooltipCard/TooltipCard';
 
-import type { PanelThreshold } from '../../types/threshold';
-import { resolveActiveThreshold } from '../../utils/evaluateThresholds';
-import { formatPanelValue } from '../../utils/formatPanelValue';
+import type { PanelThreshold } from '../../../types/threshold';
+import { resolveActiveThreshold } from '../../../utils/evaluateThresholds';
+import { formatPanelValue } from '../../../utils/formatPanelValue';
 
 import {
 	DEFAULT_ROW_HEIGHT,
 	LIST_PADDING_Y,
 	ROW_GAP,
 	ROW_HEIGHTS,
-} from './constants';
-import type { TopListRow } from './types';
+} from '../constants';
+import type { TopListRow } from '../types';
 
 export const ACCENT_COLOR = 'var(--bg-robin-500)';
 

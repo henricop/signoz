@@ -15,7 +15,7 @@ import {
 	formatShare,
 	resolveRowColors,
 	type RowColors,
-} from '../../utils';
+} from '../../utils/rowDisplay';
 
 import styles from './TopListRow.module.scss';
 

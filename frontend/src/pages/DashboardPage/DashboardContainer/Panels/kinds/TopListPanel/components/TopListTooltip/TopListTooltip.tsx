@@ -4,7 +4,11 @@ import TooltipCard from 'lib/uPlotV2/components/Tooltip/components/TooltipCard/T
 
 import type { PanelThreshold } from '../../../../types/threshold';
 import type { TopListRow } from '../../types';
-import { ACCENT_COLOR, getTooltipContent, resolveRowColors } from '../../utils';
+import {
+	ACCENT_COLOR,
+	getTooltipContent,
+	resolveRowColors,
+} from '../../utils/rowDisplay';
 
 interface TopListTooltipProps {
 	row: TopListRow;

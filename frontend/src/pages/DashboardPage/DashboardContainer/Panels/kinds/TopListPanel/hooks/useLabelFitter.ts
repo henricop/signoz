@@ -1,7 +1,7 @@
 import { type RefObject, useCallback, useMemo } from 'react';
 import { useResizeObserver } from 'hooks/useDimensions';
 
-import { truncateMiddle } from '../utils';
+import { truncateMiddle } from '../utils/rowDisplay';
 
 /** The label's horizontal padding inside the bar, plus a pixel for canvas/DOM rounding. */
 const LABEL_INSET_X = 17;

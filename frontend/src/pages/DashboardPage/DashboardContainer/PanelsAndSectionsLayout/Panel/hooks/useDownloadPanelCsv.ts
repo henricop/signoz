@@ -3,7 +3,7 @@ import logEvent from 'api/common/logEvent';
 import type { DashboardtypesPanelDTO } from 'api/generated/services/sigNoz.schemas';
 import { DashboardDetailEvents } from 'pages/DashboardPage/constants/events';
 import { getTableCsvRows } from 'pages/DashboardPage/DashboardContainer/Panels/kinds/TablePanel/tableCsv';
-import { getTopListCsvRows } from 'pages/DashboardPage/DashboardContainer/Panels/kinds/TopListPanel/csv';
+import { getTopListCsvRows } from 'pages/DashboardPage/DashboardContainer/Panels/kinds/TopListPanel/utils/csv';
 import { toPanelType } from 'pages/DashboardPage/DashboardContainer/Panels/types/panelKind';
 import type { PanelOfKind } from 'pages/DashboardPage/DashboardContainer/Panels/types/rendererProps';
 import { downloadCsv } from 'pages/DashboardPage/DashboardContainer/Panels/utils/downloadCsv';

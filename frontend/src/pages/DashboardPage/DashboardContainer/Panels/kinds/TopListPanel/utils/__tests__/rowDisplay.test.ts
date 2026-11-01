@@ -1,10 +1,10 @@
-import type { TopListRow } from '../types';
+import type { TopListRow } from '../../types';
 import {
 	formatShare,
 	getRowHeight,
 	getTooltipContent,
 	truncateMiddle,
-} from '../utils';
+} from '../rowDisplay';
 
 // Each case: rows that fit at a density, given a 1px gap and 12px of list padding.
 describe('getRowHeight', () => {

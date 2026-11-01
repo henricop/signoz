@@ -13,7 +13,7 @@ import {
 	getRankedOrder,
 	type SortDirection,
 } from './querySpec';
-import type { TopListData, TopListRow } from './types';
+import type { TopListData, TopListRow } from '../types';
 
 export const EMPTY_LABEL = '(empty)';
 

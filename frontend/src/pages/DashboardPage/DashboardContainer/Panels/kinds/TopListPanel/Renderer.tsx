@@ -10,9 +10,9 @@ import { getPanelTimeRange } from '../../utils/getPanelTimeRange';
 import { mapNumberThresholds } from '../NumberPanel/utils';
 
 import TopList from './components/TopList/TopList';
-import { LABEL_NAME_SEPARATOR, prepareTopListData } from './prepareData';
+import { LABEL_NAME_SEPARATOR, prepareTopListData } from './utils/prepareData';
 import type { TopListRow } from './types';
-import { ACCENT_COLOR, type RowColors } from './utils';
+import { ACCENT_COLOR, type RowColors } from './utils/rowDisplay';
 
 function TopListPanelRenderer({
 	panelId,

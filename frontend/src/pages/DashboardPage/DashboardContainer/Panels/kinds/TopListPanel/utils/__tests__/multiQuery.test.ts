@@ -4,7 +4,7 @@ import type {
 } from 'api/generated/services/sigNoz.schemas';
 import type { PanelQueryData } from 'pages/DashboardPage/DashboardContainer/queryV5/types';
 
-import type { PanelOfKind } from '../../../types/rendererProps';
+import type { PanelOfKind } from '../../../../types/rendererProps';
 import { prepareTopListData } from '../prepareData';
 import { getTopListDataWarning } from '../warnings';
 

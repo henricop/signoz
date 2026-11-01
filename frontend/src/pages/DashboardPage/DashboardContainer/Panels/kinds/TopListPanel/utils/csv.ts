@@ -1,11 +1,11 @@
 import type { PanelQueryData } from 'pages/DashboardPage/DashboardContainer/queryV5/types';
 
-import type { PanelOfKind } from '../../types/rendererProps';
-import { resolveDecimalPrecision } from '../../utils/chartAppearance/resolvers';
+import type { PanelOfKind } from '../../../types/rendererProps';
+import { resolveDecimalPrecision } from '../../../utils/chartAppearance/resolvers';
 
 import { LABEL_NAME_SEPARATOR, prepareTopListData } from './prepareData';
-import type { TopListRow } from './types';
-import { formatRowValue, formatShare } from './utils';
+import type { TopListRow } from '../types';
+import { formatRowValue, formatShare } from './rowDisplay';
 
 const RANK_HEADER = 'Rank';
 const LABEL_HEADER = 'Label';
