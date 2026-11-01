@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { ChevronRight } from '@signozhq/icons';
 import { DashboardtypesGeoMapCountryFormatDTO } from 'api/generated/services/sigNoz.schemas';
 
-import ChangedDot from '../../controls/ChangedDot/ChangedDot';
-import ConfigTiles from '../../controls/ConfigTiles/ConfigTiles';
+import ChangedDot from '../../../controls/ChangedDot/ChangedDot';
+import ConfigTiles from '../../../controls/ConfigTiles/ConfigTiles';
 
-import styles from './LocationSection.module.scss';
+import styles from '../LocationSection.module.scss';
 
 const FORMAT = DashboardtypesGeoMapCountryFormatDTO;
 

@@ -184,7 +184,7 @@ export default function GeoMapPanelBody({
 		),
 		[panelId],
 	);
-	const emptyMessage = getGeoMapEmptyMessage(geoData);
+	const emptyMessage = getGeoMapEmptyMessage(geoData, location?.mode);
 	const isDrawable = geoData.regions.length > 0 || geoData.points.length > 0;
 	// The chart reports loading or a failed states file itself, with a retry.
 	const isWaitingForStates =

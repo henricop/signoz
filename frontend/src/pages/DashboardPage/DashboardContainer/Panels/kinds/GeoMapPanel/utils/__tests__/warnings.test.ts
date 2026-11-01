@@ -1,6 +1,7 @@
-import type {
-	DashboardtypesPanelDTO,
-	QueryRangeV5200,
+import {
+	DashboardtypesGeoMapLocationModeDTO,
+	type DashboardtypesPanelDTO,
+	type QueryRangeV5200,
 } from 'api/generated/services/sigNoz.schemas';
 import { rememberSubdivisions } from 'lib/visualization/charts/GeoMap/geo/subdivisionCache';
 import type {
@@ -141,6 +142,18 @@ describe('getGeoMapEmptyMessage', () => {
 		expect(
 			getGeoMapEmptyMessage(makeData({ location: null, regions: [] }))?.title,
 		).toBe('Group by a location');
+	});
+
+	it('names the columns a picked row kind needs', () => {
+		const data = makeData({ location: null, regions: [] });
+		expect(
+			getGeoMapEmptyMessage(data, DashboardtypesGeoMapLocationModeDTO.coordinates)
+				?.title,
+		).toBe('Group by latitude and longitude');
+		expect(
+			getGeoMapEmptyMessage(data, DashboardtypesGeoMapLocationModeDTO.subdivision)
+				?.title,
+		).toBe('Group by a state');
 	});
 
 	it('asks for a country view for states', () => {

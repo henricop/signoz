@@ -1,4 +1,4 @@
-import TileSvg from '../../controls/drawings/TileSvg';
+import TileSvg from '../../../controls/drawings/TileSvg';
 
 const FILLED = { fill: 'currentColor', stroke: 'none' } as const;
 const SHAPES = [

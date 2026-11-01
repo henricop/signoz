@@ -1,11 +1,7 @@
-import { useRef } from 'react';
-import { Badge } from '@signozhq/ui/badge';
 import {
-	DashboardtypesGeoMapLayerDTO,
 	DashboardtypesGeoMapProjectionDTO,
 	type DashboardtypesGeoMapLocationDTO,
 	type DashboardtypesGeoMapSettingsDTO,
-	DashboardtypesGeoMapViewDTO,
 } from 'api/generated/services/sigNoz.schemas';
 import { detectLocationColumns } from 'pages/DashboardPage/DashboardContainer/Panels/kinds/GeoMapPanel/utils/locationColumns';
 import type {
@@ -13,40 +9,31 @@ import type {
 	SectionKind,
 } from 'pages/DashboardPage/DashboardContainer/Panels/types/sections';
 
-import ConfigField from '../../controls/ConfigField/ConfigField';
-import ConfigSelect from '../../controls/ConfigSelect/ConfigSelect';
-import ConfigTiles from '../../controls/ConfigTiles/ConfigTiles';
 import type { SectionEditorContext } from '../../sectionContext';
 import { formatColumnOption } from '../DimensionsSection/utils';
-import CountryFormatField from './CountryFormatField';
-import { LOCATION_DRAWINGS } from './drawings';
-import LocationColumns from './LocationColumns';
-import PlacementStatus from './PlacementStatus';
-import RowKindField from './RowKindField';
+import CountryFormatField from './components/CountryFormatField';
+import DrawAsField from './components/DrawAsField';
+import GroupByEmptyState from './components/GroupByEmptyState';
+import LocationColumns from './components/LocationColumns';
+import MapAreaField from './components/MapAreaField';
+import PlacementStatus from './components/PlacementStatus';
+import PointsRequirement from './components/PointsRequirement';
+import ProjectionField from './components/ProjectionField';
+import RowKindField from './components/RowKindField';
+import StatesOfField from './components/StatesOfField';
+import ValueColumnsFields from './components/ValueColumnsFields';
+import { useAddGroupBy } from './hooks/useAddGroupBy';
+import { useRowKindSwitch } from './hooks/useRowKindSwitch';
+import type { LocationField } from './types';
+import { autoColumnFor, describeKind } from './utils/descriptions';
+import { describePlacement, describeUnplaced } from './utils/placement';
 import {
-	autoColumnFor,
-	describeKind,
-	describeLayer,
-	type LocationField,
-} from './descriptions';
-import {
-	buildAreaItems,
-	fromAreaValue,
-	PROJECTION_HELP,
-	STATE_COUNTRY_OPTIONS,
-	toAreaValue,
-} from './options';
-import { describePlacement, describeUnplaced } from './placement';
-import {
-	changeRowKind,
 	isAutoMode,
 	patchLocation,
 	patchMap,
 	resolveLayer,
 	resolveRowKind,
-	type RowKind,
-} from './utils';
-import ValueColumnsFields from './ValueColumnsFields';
+} from './utils/rowKind';
 
 import styles from './LocationSection.module.scss';
 
@@ -55,15 +42,6 @@ type LocationSectionProps = SectionEditorProps<SectionKind.Location> &
 		SectionEditorContext,
 		'groupColumns' | 'tableColumns' | 'geoMapPlacement'
 	>;
-
-const LAYER = DashboardtypesGeoMapLayerDTO;
-const PROJECTION = DashboardtypesGeoMapProjectionDTO;
-
-const SUGGESTED_KEYS = [
-	'geo.country.iso_code',
-	'geo.region.iso_code',
-	'geo.location.lat + lon',
-];
 
 /**
  * Edits `location` and `map` together, in the order a user decides: what each
@@ -77,32 +55,33 @@ function LocationSection({
 	tableColumns = [],
 	geoMapPlacement,
 }: LocationSectionProps): JSX.Element {
-	const previousView = useRef<DashboardtypesGeoMapViewDTO>();
+	const addGroupBy = useAddGroupBy();
 	const data = geoMapPlacement?.data;
 	const kind = resolveRowKind(value, data);
 	const isAuto = isAutoMode(value);
 	const layer = resolveLayer(value, kind);
 	const hasGroupBy = groupColumns.length > 0;
 	const viewCountry = value?.map?.viewCountry;
-	const projection = value?.map?.projection ?? PROJECTION.mercator;
 	const detected = detectLocationColumns(groupColumns);
 	const autoColumn = (field: LocationField): string | undefined =>
 		autoColumnFor(field, data?.location, detected);
+	const { pickKind, areaColumn, restoreAreas } = useRowKindSwitch({
+		value,
+		onChange,
+		kind,
+		isAuto,
+		layer,
+		detected,
+		suggestedCountry: geoMapPlacement?.suggestedCountry,
+	});
 
 	const setLocation = (patch: Partial<DashboardtypesGeoMapLocationDTO>): void =>
 		onChange({ ...value, location: patchLocation(value?.location, patch) });
 	const setMap = (patch: Partial<DashboardtypesGeoMapSettingsDTO>): void =>
 		onChange({ ...value, map: patchMap(value?.map, patch) });
-	const pickKind = (to: RowKind | 'auto'): void => {
-		const change = changeRowKind(value, kind, to, {
-			previousView: previousView.current,
-			suggestedCountry: geoMapPlacement?.suggestedCountry,
-		});
-		if (change.previousView) {
-			previousView.current = change.previousView;
-		}
-		onChange(change.next);
-	};
+	const missingCoordinates = (['lat', 'lon'] as const).filter(
+		(field) => !(value?.location?.[field] || autoColumn(field)),
+	);
 	const status = data && describePlacement(data, kind, viewCountry);
 
 	return (
@@ -114,47 +93,13 @@ function LocationSection({
 				onPick={pickKind}
 			/>
 
-			{!hasGroupBy && (
-				<div className={styles.empty} data-testid="geo-location-empty">
-					<span className={styles.emptyTitle}>Add a location to Group By</span>
-					<span className={styles.muted}>
-						Group the query by the attribute that holds each row&apos;s country,
-						state, or latitude and longitude, then run it. This section fills in by
-						itself.
-					</span>
-					<span className={styles.muted}>GeoIP enrichment usually names them:</span>
-					<div className={styles.chips}>
-						{SUGGESTED_KEYS.map((key) => (
-							<Badge key={key} color="secondary" variant="outlined">
-								{key}
-							</Badge>
-						))}
-					</div>
-				</div>
-			)}
+			{!hasGroupBy && <GroupByEmptyState onAddGroupBy={addGroupBy} />}
 
 			{kind === 'state' && (
-				<ConfigField
-					label="States of"
-					help={
-						viewCountry ? (
-							'The map zooms to this country.'
-						) : (
-							<span className={styles.error}>
-								States only draw inside one country. Pick the country.
-							</span>
-						)
-					}
-				>
-					<ConfigSelect
-						testId="panel-editor-v2-geo-location-view-country"
-						showSearch
-						placeholder="Pick a country"
-						value={viewCountry || undefined}
-						items={STATE_COUNTRY_OPTIONS}
-						onChange={(next): void => setMap({ viewCountry: next })}
-					/>
-				</ConfigField>
+				<StatesOfField
+					value={viewCountry}
+					onChange={(next): void => setMap({ viewCountry: next })}
+				/>
 			)}
 
 			{hasGroupBy && kind && (
@@ -164,6 +109,15 @@ function LocationSection({
 					groupColumns={groupColumns}
 					autoColumn={autoColumn}
 					onChange={setLocation}
+				/>
+			)}
+
+			{hasGroupBy && kind === 'point' && missingCoordinates.length > 0 && (
+				<PointsRequirement
+					missing={missingCoordinates.map((field) => `geo.location.${field}`)}
+					areaColumn={areaColumn}
+					onAddGroupBy={addGroupBy}
+					onUseAreas={restoreAreas}
 				/>
 			)}
 
@@ -182,96 +136,21 @@ function LocationSection({
 			)}
 
 			{kind !== 'state' && (
-				<ConfigField
-					label="Map area"
-					changed={toAreaValue(value) !== DashboardtypesGeoMapViewDTO.world}
-					onReset={(): void =>
-						setMap({ view: DashboardtypesGeoMapViewDTO.world, viewCountry: '' })
-					}
-					help={
-						value?.map?.view === DashboardtypesGeoMapViewDTO.fit
-							? 'Zooms to the places in the results.'
-							: undefined
-					}
-				>
-					<ConfigSelect
-						testId="panel-editor-v2-geo-map-view"
-						showSearch={kind === 'point'}
-						value={toAreaValue(value)}
-						items={buildAreaItems(kind)}
-						onChange={(next): void => setMap(fromAreaValue(next))}
-					/>
-				</ConfigField>
+				<MapAreaField kind={kind} value={value} onChange={setMap} />
 			)}
 
-			<ConfigField
-				label="Projection"
-				changed={projection !== PROJECTION.mercator}
-				onReset={(): void => setMap({ projection: PROJECTION.mercator })}
-				help={PROJECTION_HELP[projection]}
-			>
-				<ConfigTiles<DashboardtypesGeoMapProjectionDTO>
-					testId="panel-editor-v2-geo-map-projection"
-					aria-label="Projection"
-					value={projection}
-					items={[
-						{
-							value: PROJECTION.mercator,
-							label: 'Mercator',
-							description: 'True shapes',
-							drawing: LOCATION_DRAWINGS.mercator,
-						},
-						{
-							value: PROJECTION.equal_earth,
-							label: 'Equal Earth',
-							description: 'True areas',
-							drawing: LOCATION_DRAWINGS.equal_earth,
-						},
-						{
-							value: PROJECTION.natural_earth,
-							label: 'Natural Earth',
-							description: 'Balanced',
-							drawing: LOCATION_DRAWINGS.natural_earth,
-						},
-					]}
-					onChange={(next): void => setMap({ projection: next })}
-				/>
-			</ConfigField>
+			<ProjectionField
+				value={value?.map?.projection ?? DashboardtypesGeoMapProjectionDTO.mercator}
+				onChange={(projection): void => setMap({ projection })}
+			/>
 
-			<ConfigField
-				label="Draw as"
-				changed={kind !== 'point' && layer !== LAYER.regions}
-				onReset={(): void => setMap({ layer: LAYER.regions })}
-				help={describeLayer(kind, layer)}
-			>
-				<ConfigTiles<DashboardtypesGeoMapLayerDTO>
-					testId="panel-editor-v2-geo-map-layer"
-					aria-label="Draw as"
+			{kind !== 'point' && (
+				<DrawAsField
+					kind={kind}
 					value={layer}
-					items={[
-						{
-							value: LAYER.regions,
-							label: 'Shaded areas',
-							drawing: LOCATION_DRAWINGS.regions,
-							disabled: kind === 'point',
-						},
-						{
-							value: LAYER.bubbles,
-							label: 'Bubbles',
-							drawing: LOCATION_DRAWINGS.bubbles,
-							disabled: kind === 'point',
-						},
-						{
-							value: LAYER.points,
-							label: 'Points',
-							drawing: LOCATION_DRAWINGS.points,
-						},
-					]}
-					onChange={(next): void =>
-						next === LAYER.points ? pickKind('point') : setMap({ layer: next })
-					}
+					onChange={(next): void => setMap({ layer: next })}
 				/>
-			</ConfigField>
+			)}
 
 			<ValueColumnsFields
 				layer={layer}

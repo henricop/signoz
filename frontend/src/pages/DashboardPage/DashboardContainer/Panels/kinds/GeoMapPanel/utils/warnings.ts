@@ -1,3 +1,4 @@
+import { DashboardtypesGeoMapLocationModeDTO } from 'api/generated/services/sigNoz.schemas';
 import { getLoadedSubdivisions } from 'lib/visualization/charts/GeoMap/geo/subdivisionCache';
 import type { PanelStatusDetail } from 'pages/DashboardPage/DashboardContainer/PanelsAndSectionsLayout/Panel/PanelStatus/types';
 import type { PanelQueryData } from 'pages/DashboardPage/DashboardContainer/queryV5/types';
@@ -57,6 +58,20 @@ function unmappedNote(data: GeoMapPanelData): string {
 	return `${rows(data.unmappedRows)} with a location the map doesn't know${values}.`;
 }
 
+const MISSING_LOCATION: Partial<
+	Record<DashboardtypesGeoMapLocationModeDTO, GeoMapMessage>
+> = {
+	coordinates: {
+		title: 'Group by latitude and longitude',
+		description:
+			'Points need both columns, such as geo.location.lat and geo.location.lon. Or draw as Shaded areas or Bubbles.',
+	},
+	subdivision: {
+		title: 'Group by a state',
+		description: 'States need a state column, such as geo.region.iso_code.',
+	},
+};
+
 function drawnCount(data: GeoMapPanelData): number {
 	return data.regions.length + data.points.length;
 }
@@ -64,16 +79,19 @@ function drawnCount(data: GeoMapPanelData): number {
 /** Why the map shows nothing; undefined for plain no-data or when something draws. */
 export function getGeoMapEmptyMessage(
 	data: GeoMapPanelData,
+	mode?: DashboardtypesGeoMapLocationModeDTO,
 ): GeoMapMessage | undefined {
 	if (data.totalRows === 0) {
 		return undefined;
 	}
 	if (!data.location) {
-		return {
-			title: 'Group by a location',
-			description:
-				'Group the query by a country, region, or latitude and longitude attribute, such as geo.country.iso_code.',
-		};
+		return (
+			(mode && MISSING_LOCATION[mode]) ?? {
+				title: 'Group by a location',
+				description:
+					'Group the query by a country, region, or latitude and longitude attribute, such as geo.country.iso_code.',
+			}
+		);
 	}
 	if (!data.colorColumn) {
 		return {

@@ -4,9 +4,9 @@ import {
 	LocationKind,
 } from 'pages/DashboardPage/DashboardContainer/Panels/kinds/GeoMapPanel/types';
 
-import { buildAreaItems, fromAreaValue, toAreaValue } from '../options';
-import { describePlacement, describeUnplaced } from '../placement';
-import { changeRowKind, resolveLayer, resolveRowKind } from '../utils';
+import { buildAreaItems, fromAreaValue, toAreaValue } from '../utils/options';
+import { describePlacement, describeUnplaced } from '../utils/placement';
+import { changeRowKind, resolveLayer, resolveRowKind } from '../utils/rowKind';
 
 const column = (id: string): GeoMapPanelData['colorColumn'] & object => ({
 	id,

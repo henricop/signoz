@@ -1,12 +1,12 @@
 import { DashboardtypesGeoMapLayerDTO } from 'api/generated/services/sigNoz.schemas';
 
-import ConfigField from '../../controls/ConfigField/ConfigField';
+import ConfigField from '../../../controls/ConfigField/ConfigField';
 import ConfigSelect, {
 	type ConfigSelectItem,
-} from '../../controls/ConfigSelect/ConfigSelect';
-import LabelWithInfo from '../DimensionsSection/LabelWithInfo';
-import { describeSize } from './descriptions';
-import { SIZE_LABEL } from './options';
+} from '../../../controls/ConfigSelect/ConfigSelect';
+import LabelWithInfo from '../../DimensionsSection/LabelWithInfo';
+import { describeSize } from '../utils/descriptions';
+import { SIZE_LABEL } from '../utils/options';
 
 const NO_VALUES: ConfigSelectItem[] = [
 	{ value: '', label: 'Run the query to see value columns' },

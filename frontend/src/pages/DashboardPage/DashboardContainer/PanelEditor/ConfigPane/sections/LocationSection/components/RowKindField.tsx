@@ -1,10 +1,10 @@
 import { Button } from '@signozhq/ui/button';
 
-import ConfigField from '../../controls/ConfigField/ConfigField';
-import ConfigTiles from '../../controls/ConfigTiles/ConfigTiles';
-import LabelWithInfo from '../DimensionsSection/LabelWithInfo';
-import { LOCATION_DRAWINGS } from './drawings';
-import type { RowKind } from './utils';
+import ConfigField from '../../../controls/ConfigField/ConfigField';
+import ConfigTiles from '../../../controls/ConfigTiles/ConfigTiles';
+import LabelWithInfo from '../../DimensionsSection/LabelWithInfo';
+import { LOCATION_DRAWINGS } from '../utils/drawings';
+import type { RowKind } from '../types';
 
 const KINDS: { value: RowKind; label: string }[] = [
 	{ value: 'country', label: 'Country' },

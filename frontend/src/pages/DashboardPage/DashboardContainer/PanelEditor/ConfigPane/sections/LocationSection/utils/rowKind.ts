@@ -13,7 +13,7 @@ import {
 } from 'pages/DashboardPage/DashboardContainer/Panels/kinds/GeoMapPanel/types';
 import type { GeoMapPlacementSlice } from 'pages/DashboardPage/DashboardContainer/Panels/types/sections';
 
-export type RowKind = 'country' | 'state' | 'point';
+import type { KindChange, LocationField, RowKind } from '../types';
 
 const MODE = DashboardtypesGeoMapLocationModeDTO;
 const LAYER = DashboardtypesGeoMapLayerDTO;
@@ -97,12 +97,6 @@ export function resolveLayer(
 /** Where a state view opens when the rows suggest no country; the save API needs one. */
 const DEFAULT_STATE_COUNTRY = 'US';
 
-interface KindChange {
-	next: GeoMapPlacementSlice;
-	/** The area to restore when leaving a state view, which takes over the area. */
-	previousView?: DashboardtypesGeoMapViewDTO;
-}
-
 /**
  * Switches what a row is, keeping the area and layer usable: states take over
  * the area with their country, and points draw only as points.
@@ -159,4 +153,17 @@ export function changeRowKind(
 		map.layer = LAYER.regions;
 	}
 	return { next: { location, map } };
+}
+
+/** The first row kind other than `except` that the group-by columns can draw. */
+export function drawableKind(
+	detected: Partial<Record<LocationField, string>>,
+	except: RowKind,
+): RowKind | undefined {
+	const drawable: [RowKind, boolean][] = [
+		['country', !!detected.country],
+		['state', !!detected.region],
+		['point', !!(detected.lat && detected.lon)],
+	];
+	return drawable.find(([kind, can]) => can && kind !== except)?.[0];
 }

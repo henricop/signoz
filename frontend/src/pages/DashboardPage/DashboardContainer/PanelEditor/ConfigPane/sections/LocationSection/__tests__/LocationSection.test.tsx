@@ -4,7 +4,11 @@ import type { GeoMapPlacement } from 'pages/DashboardPage/DashboardContainer/Pan
 import type { GeoMapPlacementSlice } from 'pages/DashboardPage/DashboardContainer/Panels/types/sections';
 import { ColorRampScale } from 'lib/visualization/colorRamp/types';
 import type { PanelTableColumn } from 'pages/DashboardPage/DashboardContainer/queryV5/types';
+import { initialQueriesMap } from 'constants/queryBuilder';
 import { render, screen, userEvent, within } from 'tests/test-utils';
+import type { Query } from 'types/api/queryBuilder/queryBuilderData';
+import { EQueryType } from 'types/common/dashboard';
+import type { QueryBuilderContextType } from 'types/common/queryBuilder';
 
 import LocationSection from '../LocationSection';
 
@@ -58,6 +62,7 @@ function renderSection(
 	groups: string[],
 	rows: Record<string, unknown>[],
 	initial: GeoMapPlacementSlice = {},
+	queryBuilderOverrides?: Partial<QueryBuilderContextType>,
 ): jest.MockedFunction<OnChange> {
 	const onChange = jest.fn() as jest.MockedFunction<OnChange>;
 	function Stateful(): JSX.Element {
@@ -75,9 +80,30 @@ function renderSection(
 			/>
 		);
 	}
-	render(<Stateful />);
+	render(<Stateful />, undefined, { queryBuilderOverrides });
 	return onChange;
 }
+
+const TRACES_QUERY = initialQueriesMap.traces;
+
+function queryBuilderWith(query: Query): {
+	overrides: Partial<QueryBuilderContextType>;
+	redirect: jest.Mock;
+} {
+	const redirect = jest.fn();
+	return {
+		overrides: {
+			currentQuery: query,
+			redirectWithQueryBuilderData: redirect,
+		},
+		redirect,
+	};
+}
+
+const groupByKeys = (redirect: jest.Mock): string[][] =>
+	(redirect.mock.lastCall[0] as Query).builder.queryData.map((data) =>
+		data.groupBy.map((item) => item.key),
+	);
 
 const COUNTRY_ROWS = [
 	{ 'geo.country.iso_code': 'US', A: 10, B: 1 },
@@ -93,6 +119,44 @@ describe('LocationSection', () => {
 			'Add a location to Group By',
 		);
 		expect(screen.getByText('Nothing to detect yet.')).toBeInTheDocument();
+	});
+
+	it('adds a suggested location to Group By and runs the query', async () => {
+		const query: Query = {
+			...TRACES_QUERY,
+			builder: {
+				...TRACES_QUERY.builder,
+				queryData: TRACES_QUERY.builder.queryData.map((data) => ({
+					...data,
+					groupBy: [{ key: 'service.name', type: '' }],
+				})),
+			},
+		};
+		const { overrides, redirect } = queryBuilderWith(query);
+		renderSection([], [], {}, overrides);
+
+		await userEvent.click(
+			screen.getByTestId('geo-location-add-group-by-geo.location.lat'),
+		);
+
+		expect(groupByKeys(redirect)).toStrictEqual([
+			['service.name', 'geo.location.lat', 'geo.location.lon'],
+		]);
+	});
+
+	it('only names the keys when the query is not a builder query', () => {
+		const { overrides } = queryBuilderWith({
+			...TRACES_QUERY,
+			queryType: EQueryType.CLICKHOUSE,
+		});
+		renderSection([], [], {}, overrides);
+
+		expect(screen.getByTestId('geo-location-empty')).toHaveTextContent(
+			'geo.country.iso_code',
+		);
+		expect(
+			screen.queryByTestId('geo-location-add-group-by-geo.country.iso_code'),
+		).not.toBeInTheDocument();
 	});
 
 	it('names what auto detected and how many rows it placed', async () => {
@@ -151,15 +215,21 @@ describe('LocationSection', () => {
 		);
 	});
 
-	it('reads lat/lon rows as points and offers no other layer', () => {
+	it('draws lat/lon rows as points, with no other layer to pick', () => {
 		renderSection(
 			['geo.location.lat', 'geo.location.lon'],
 			[{ 'geo.location.lat': 1, 'geo.location.lon': 2, A: 1, B: 1 }],
 		);
 
-		expect(screen.getByRole('radio', { name: 'Points' })).toBeChecked();
-		expect(screen.getByRole('radio', { name: 'Shaded areas' })).toBeDisabled();
-		expect(screen.getByRole('radio', { name: 'Bubbles' })).toBeDisabled();
+		expect(
+			screen.getByTestId('panel-editor-v2-geo-location-kind-point'),
+		).toHaveTextContent('AUTO');
+		expect(
+			screen.queryByTestId('panel-editor-v2-geo-map-layer'),
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByTestId('geo-location-points-requirement'),
+		).not.toBeInTheDocument();
 		expect(
 			screen.getByTestId('panel-editor-v2-geo-location-lat'),
 		).toHaveTextContent('Auto · geo.location.lat');
@@ -189,18 +259,77 @@ describe('LocationSection', () => {
 		).toBeInTheDocument();
 	});
 
-	it('switches to point rows when Points is drawn', async () => {
+	it('lists the steps when point rows lack lat/lon columns', async () => {
 		const onChange = renderSection(['geo.country.iso_code'], COUNTRY_ROWS);
 
-		await userEvent.click(screen.getByRole('radio', { name: 'Points' }));
+		await userEvent.click(
+			within(
+				screen.getByTestId('panel-editor-v2-geo-location-kind-point'),
+			).getByRole('radio'),
+		);
 
 		expect(onChange).toHaveBeenLastCalledWith({
 			location: { mode: 'coordinates', countryFormat: 'auto' },
 			map: { layer: 'points', view: 'world', projection: 'mercator' },
 		});
+		const requirement = screen.getByTestId('geo-location-points-requirement');
+		expect(requirement).toHaveTextContent(
+			'Add geo.location.lat and geo.location.lon to Group By.',
+		);
+		expect(screen.getByTestId('geo-location-points-use-areas')).toHaveTextContent(
+			'Use geo.country.iso_code',
+		);
+	});
+
+	it('adds the missing lat/lon to Group By from the points steps', async () => {
+		const { overrides, redirect } = queryBuilderWith(TRACES_QUERY);
+		renderSection(
+			['geo.country.iso_code', 'geo.location.lat'],
+			COUNTRY_ROWS,
+			{ location: { mode: 'coordinates' } as GeoMapPlacementSlice['location'] },
+			overrides,
+		);
+
 		expect(
-			screen.getByText('Points need both columns; until then nothing is drawn.'),
-		).toBeInTheDocument();
+			screen.getByTestId('geo-location-points-requirement'),
+		).toHaveTextContent('Add geo.location.lon to Group By.');
+
+		await userEvent.click(screen.getByTestId('geo-location-points-add-group-by'));
+
+		expect(groupByKeys(redirect)).toStrictEqual([['geo.location.lon']]);
+	});
+
+	it('brings back the rows and layer drawn before points', async () => {
+		const onChange = renderSection(['geo.country.iso_code'], COUNTRY_ROWS, {
+			map: { layer: 'bubbles' } as GeoMapPlacementSlice['map'],
+		});
+
+		await userEvent.click(
+			within(
+				screen.getByTestId('panel-editor-v2-geo-location-kind-point'),
+			).getByRole('radio'),
+		);
+		await userEvent.click(screen.getByTestId('geo-location-points-use-areas'));
+
+		expect(onChange).toHaveBeenLastCalledWith({
+			location: {
+				mode: 'auto',
+				countryFormat: 'auto',
+				country: '',
+				region: '',
+				lat: '',
+				lon: '',
+			},
+			map: { layer: 'bubbles', view: 'world', projection: 'mercator' },
+		});
+		expect(
+			within(
+				screen.getByTestId('panel-editor-v2-geo-map-layer-bubbles'),
+			).getByRole('radio'),
+		).toBeChecked();
+		expect(
+			screen.queryByTestId('geo-location-points-requirement'),
+		).not.toBeInTheDocument();
 	});
 
 	it('flags a configured column the results lack and offers the detected one', async () => {

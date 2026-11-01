@@ -6,8 +6,8 @@ import {
 import { SUBDIVISION_COUNTRY_CODES } from 'lib/visualization/charts/GeoMap/geo/subdivisionCountries';
 import type { GeoMapPlacementSlice } from 'pages/DashboardPage/DashboardContainer/Panels/types/sections';
 
-import type { ConfigSelectItem } from '../../controls/ConfigSelect/ConfigSelect';
-import type { RowKind } from './utils';
+import type { ConfigSelectItem } from '../../../controls/ConfigSelect/ConfigSelect';
+import type { RowKind } from '../types';
 
 const VIEW = DashboardtypesGeoMapViewDTO;
 
@@ -86,3 +86,13 @@ export const PROJECTION_HELP: Record<
 	equal_earth: 'Draws every country at its true size.',
 	natural_earth: 'Balances size and shape; neither is exact.',
 };
+
+/** Group-by keys GeoIP enrichment usually sets, each with the keys one pick adds. */
+export const SUGGESTED_GROUP_BYS: { label: string; keys: string[] }[] = [
+	{ label: 'geo.country.iso_code', keys: ['geo.country.iso_code'] },
+	{ label: 'geo.region.iso_code', keys: ['geo.region.iso_code'] },
+	{
+		label: 'geo.location.lat + lon',
+		keys: ['geo.location.lat', 'geo.location.lon'],
+	},
+];

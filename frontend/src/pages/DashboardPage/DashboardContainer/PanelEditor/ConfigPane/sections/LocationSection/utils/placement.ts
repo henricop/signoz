@@ -1,12 +1,7 @@
 import type { GeoMapPanelData } from 'pages/DashboardPage/DashboardContainer/Panels/kinds/GeoMapPanel/types';
 
 import { countryName } from './options';
-import type { RowKind } from './utils';
-
-export interface UnplacedRow {
-	value: string;
-	why: string;
-}
+import type { PlacementStatus, RowKind, UnplacedRow } from '../types';
 
 /** Most rows "Show which" lists before counting the rest. */
 const LISTED_UNPLACED = 20;
@@ -67,13 +62,6 @@ export function describeUnplaced(
 		];
 	}
 	return rows;
-}
-
-export type PlacementTone = 'ok' | 'warn' | 'error';
-
-export interface PlacementStatus {
-	tone: PlacementTone;
-	text: string;
 }
 
 export function describePlacement(

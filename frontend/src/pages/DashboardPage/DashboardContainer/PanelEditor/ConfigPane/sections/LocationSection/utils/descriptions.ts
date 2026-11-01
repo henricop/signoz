@@ -4,11 +4,9 @@ import {
 	LocationKind,
 } from 'pages/DashboardPage/DashboardContainer/Panels/kinds/GeoMapPanel/types';
 
-import type { RowKind } from './utils';
+import type { LocationField, RowKind } from '../types';
 
 const LAYER = DashboardtypesGeoMapLayerDTO;
-
-export type LocationField = 'country' | 'region' | 'lat' | 'lon';
 
 /** The column Auto reads for a field: what the preview placed rows by, else a name match. */
 export function autoColumnFor(
@@ -68,9 +66,6 @@ export function describeLayer(
 	kind: RowKind | undefined,
 	layer: DashboardtypesGeoMapLayerDTO,
 ): string {
-	if (kind === 'point') {
-		return 'Each row is drawn at its latitude and longitude. Shaded areas and Bubbles need country or state rows.';
-	}
 	const shape = kind === 'state' ? 'state' : 'country';
 	return layer === LAYER.regions
 		? `Fills each ${shape} with its color.`

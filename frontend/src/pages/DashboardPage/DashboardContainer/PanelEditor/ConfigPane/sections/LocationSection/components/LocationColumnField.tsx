@@ -1,11 +1,11 @@
 import { Button } from '@signozhq/ui/button';
 
-import ConfigField from '../../controls/ConfigField/ConfigField';
+import ConfigField from '../../../controls/ConfigField/ConfigField';
 import ConfigSelect, {
 	type ConfigSelectItem,
-} from '../../controls/ConfigSelect/ConfigSelect';
+} from '../../../controls/ConfigSelect/ConfigSelect';
 
-import styles from './LocationSection.module.scss';
+import styles from '../LocationSection.module.scss';
 
 interface LocationColumnFieldProps {
 	testId: string;

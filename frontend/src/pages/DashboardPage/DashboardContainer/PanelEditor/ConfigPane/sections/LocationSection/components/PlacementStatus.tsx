@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Button } from '@signozhq/ui/button';
 
-import type { PlacementStatus as Status, UnplacedRow } from './placement';
+import type { PlacementStatus as Status, UnplacedRow } from '../types';
 
-import styles from './LocationSection.module.scss';
+import styles from '../LocationSection.module.scss';
 
 interface PlacementStatusProps {
 	status: Status;

@@ -1,10 +1,7 @@
 import type { GeoMapPlacementSlice } from 'pages/DashboardPage/DashboardContainer/Panels/types/sections';
 
 import LocationColumnField from './LocationColumnField';
-import type { LocationField } from './descriptions';
-import type { RowKind } from './utils';
-
-import styles from './LocationSection.module.scss';
+import type { LocationField, RowKind } from '../types';
 
 interface LocationColumnsProps {
 	kind: RowKind;
@@ -51,17 +48,10 @@ function LocationColumns({
 		const { field: name, label, noun } = SINGLE[kind];
 		return field(name, label, noun);
 	}
-	const isMissing = (name: LocationField): boolean =>
-		!(location?.[name] || autoColumn(name));
 	return (
 		<>
 			{field('lat', 'Latitude', 'latitude')}
 			{field('lon', 'Longitude', 'longitude')}
-			{(isMissing('lat') || isMissing('lon')) && (
-				<span className={styles.warning}>
-					Points need both columns; until then nothing is drawn.
-				</span>
-			)}
 		</>
 	);
 }

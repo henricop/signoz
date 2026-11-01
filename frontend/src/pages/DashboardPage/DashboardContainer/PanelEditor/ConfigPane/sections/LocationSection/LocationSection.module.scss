@@ -43,12 +43,6 @@
 	line-height: 17px;
 }
 
-.warning {
-	color: var(--bg-amber-400);
-	font-size: 12px;
-	line-height: 17px;
-}
-
 .fix {
 	align-self: flex-start;
 }
@@ -145,4 +139,21 @@
 
 .grow {
 	flex: 1;
+}
+
+.steps {
+	margin: 4px 0 0;
+	padding-left: 18px;
+	font-size: 12px;
+	line-height: 18px;
+}
+
+.alternative {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 8px;
+	margin-top: 8px;
+	font-size: 12px;
+	line-height: 17px;
 }
